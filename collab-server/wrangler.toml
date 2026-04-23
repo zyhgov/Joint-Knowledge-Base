@@ -1,0 +1,14 @@
+name = "collab-docs-server"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+
+# Durable Objects 绑定
+[durable_objects]
+bindings = [
+  { name = "Y_DURABLE_OBJECTS", class_name = "YDurableObjects" }
+]
+
+# Durable Objects 迁移
+[[migrations]]
+tag = "v1"
+new_classes = ["YDurableObjects"]
