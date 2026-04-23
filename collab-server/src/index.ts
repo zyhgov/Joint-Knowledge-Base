@@ -14,7 +14,7 @@ const app = new Hono<Env>();
 
 // CORS 配置 - 允许前端跨域访问
 app.use("*", cors({
-  origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
+  origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:3000", "http://localhost:3001", "http://localhost:3002", "https://jkb.zyhorg.cn"],
   allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowHeaders: ["Content-Type", "Authorization"],
   credentials: true,
