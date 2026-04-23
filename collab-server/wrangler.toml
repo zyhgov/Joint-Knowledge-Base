@@ -8,7 +8,7 @@ bindings = [
   { name = "Y_DURABLE_OBJECTS", class_name = "YDurableObjects" }
 ]
 
-# Durable Objects 迁移
+# Durable Objects 迁移（免费计划需使用 new_sqlite_classes）
 [[migrations]]
 tag = "v1"
-new_classes = ["YDurableObjects"]
+new_sqlite_classes = ["YDurableObjects"]
