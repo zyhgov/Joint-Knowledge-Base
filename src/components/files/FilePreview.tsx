@@ -229,25 +229,15 @@ export default function FilePreview({ file, onClose, onDownload, workspaces = []
             </div>
           )}
 
-          {/* 视频/音频播放 */}
+          {/* 视频/音频 - 内嵌玻璃磨砂播放器 */}
           {(isVideo || isAudio) && (
-            <div className="text-center">
-              <div className={cn('rounded-2xl flex items-center justify-center w-24 h-24 mx-auto mb-4', getFileIconConfig(file.file_ext).bgColor)}>
-                <div className="scale-[3]">{getFileIconConfig(file.file_ext).icon}</div>
-              </div>
-              <h3 className="font-medium text-foreground mb-1">{file.display_name}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {isVideo ? '视频' : '音频'}文件 · 点击下方按钮播放
-              </p>
-              <button
-                onClick={() => setMediaPlayerOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm hover:bg-primary/90 transition-colors"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-                </svg>
-                播放{isVideo ? '视频' : '音频'}
-              </button>
+            <div className="w-full h-full flex items-center justify-center">
+              <MediaPlayer
+                src={file.public_url}
+                title={file.display_name}
+                type={isVideo ? 'video' : 'audio'}
+                embedded
+              />
             </div>
           )}
 

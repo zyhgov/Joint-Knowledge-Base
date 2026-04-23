@@ -240,10 +240,10 @@ export default function UserManagement() {
     try {
       const lines = importData.trim().split('\n')
       const usersToImport = lines.slice(1).map((line) => {
-        const [phone, password, display_name, role_code] = line
+        const [phone, password, display_name, role_code, department_code] = line
           .split(',')
           .map((s) => s.trim())
-        return { phone, password, display_name, role_code }
+        return { phone, password, display_name, role_code, department_code }
       })
 
       const result = await userService.importUsers(usersToImport)
@@ -1219,16 +1219,16 @@ export default function UserManagement() {
           <DialogHeader>
             <DialogTitle>批量导入用户</DialogTitle>
             <DialogDescription>
-              CSV 格式: phone, password, display_name, role_code（第一行为表头）
+              CSV 格式: phone, password, display_name, role_code, department_code（第一行为表头）
             </DialogDescription>
           </DialogHeader>
           <div>
             <textarea
               value={importData}
               onChange={(e) => setImportData(e.target.value)}
-              placeholder={`phone,password,display_name,role_code
-18800000001,password123,张三,editor
-18800000002,password456,李四,member`}
+              placeholder={`phone,password,display_name,role_code,department_code
+18800000001,password123,张三,editor,DEV
+18800000002,password456,李四,member,HR`}
               rows={8}
               className="w-full px-3 py-2 rounded-md border border-input bg-background text-sm resize-none font-mono focus:outline-none focus:ring-2 focus:ring-ring/20"
             />

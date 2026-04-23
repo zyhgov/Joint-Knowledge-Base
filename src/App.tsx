@@ -15,6 +15,7 @@ import DepartmentManagement from '@/pages/Admin/DepartmentManagement'
 import NotificationManagement from '@/pages/Admin/NotificationManagement'
 import AnnouncementManagement from '@/pages/Admin/AnnouncementManagement'
 import FilesPage from '@/pages/Files/FilesPage'
+import FileShareView from '@/pages/Files/FileShareView'
 import WorkspacesPage from '@/pages/Workspaces/WorkspacesPage'
 import FileStats from '@/pages/Stats/FileStats'
 import DocumentsPage from '@/pages/Document/DocumentsPage'
@@ -148,6 +149,10 @@ function App() {
         <Route
           path="/share/doc/:shareCode"
           element={<DocumentShareView />}
+        />
+        <Route
+          path="/share/:shareCode"
+          element={<FileShareView />}
         />
 
         <Route

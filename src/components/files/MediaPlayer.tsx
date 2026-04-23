@@ -17,7 +17,8 @@ interface MediaPlayerProps {
   title?: string
   type: 'video' | 'audio'
   poster?: string
-  onClose: () => void
+  onClose?: () => void
+  embedded?: boolean  // 内嵌模式：不显示关闭按钮，贴合容器
 }
 
 // 格式化时间
@@ -30,7 +31,7 @@ const formatTime = (seconds: number): string => {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export default function MediaPlayer({ src, title, type, poster, onClose }: MediaPlayerProps) {
+export default function MediaPlayer({ src, title, type, poster, onClose, embedded = false }: MediaPlayerProps) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const progressRef = useRef<HTMLDivElement>(null)
@@ -151,7 +152,7 @@ export default function MediaPlayer({ src, title, type, poster, onClose }: Media
         case 'ArrowDown': e.preventDefault(); setVolume(v => Math.max(0, v - 0.1)); break
         case 'f': e.preventDefault(); toggleFullscreen(); break
         case 'm': e.preventDefault(); setMuted(m => !m); break
-        case 'Escape': onClose(); break
+        case 'Escape': onClose?.(); break
       }
     }
     window.addEventListener('keydown', handler)
@@ -164,20 +165,26 @@ export default function MediaPlayer({ src, title, type, poster, onClose }: Media
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black"
+      className={cn(
+        embedded
+          ? 'relative w-full h-full bg-black/90 rounded-xl overflow-hidden'
+          : 'fixed inset-0 z-50 flex items-center justify-center bg-black'
+      )}
       onMouseMove={showControlsTemporarily}
     >
-      {/* 关闭按钮 */}
-      <button
-        onClick={onClose}
-        className={cn(
-          'absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-300',
-          'bg-white/10 backdrop-blur-md text-white/80 hover:bg-white/20 hover:text-white',
-          showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-        )}
-      >
-        <XMarkIcon className="h-5 w-5" />
-      </button>
+      {/* 关闭按钮 - 内嵌模式不显示 */}
+      {!embedded && (
+        <button
+          onClick={onClose}
+          className={cn(
+            'absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-300',
+            'bg-white/10 backdrop-blur-md text-white/80 hover:bg-white/20 hover:text-white',
+            showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          )}
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
+      )}
 
       {/* 标题 */}
       {title && (

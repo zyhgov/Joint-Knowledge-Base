@@ -123,20 +123,21 @@ export default function DocumentsPage() {
   const loadDocuments = useCallback(async () => {
     setLoading(true)
     try {
-      const res1 = await supabase
-        .from('jkb_documents')
-        .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password, workspaces(name), jkb_users(display_name, avatar_url)')
-        .is('deleted_at', null)
-        .order('updated_at', { ascending: false })
-
+      // 先查文档列表
       let data: DocRow[] | null = null
       let error: any = null
+
+      const res1 = await supabase
+        .from('jkb_documents')
+        .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password, workspaces(name)')
+        .is('deleted_at', null)
+        .order('updated_at', { ascending: false })
 
       if (res1.error) {
         console.warn('带 deleted_at 查询失败，尝试降级查询:', res1.error.message)
         const res2 = await supabase
           .from('jkb_documents')
-          .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password, workspaces(name), jkb_users(display_name, avatar_url)')
+          .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password, workspaces(name)')
           .order('updated_at', { ascending: false })
         data = res2.data
         error = res2.error
@@ -147,27 +148,37 @@ export default function DocumentsPage() {
       if (error) throw error
       let filtered = data || []
 
-      // 降级补充：对于 jkb_users 为空的文档，单独查询创建者信息
-      const needLookup = filtered.filter(d => !d.jkb_users || d.jkb_users.length === 0)
-      if (needLookup.length > 0) {
-        const creatorIds = [...new Set(needLookup.map(d => d.created_by))]
-        if (creatorIds.length > 0) {
-          const { data: usersData } = await supabase
-            .from('jkb_users')
-            .select('id, display_name, avatar_url')
-            .in('id', creatorIds)
-          if (usersData) {
-            const userMap = new Map(usersData.map(u => [u.id, u]))
-            filtered = filtered.map(d => {
-              if ((!d.jkb_users || d.jkb_users.length === 0) && userMap.has(d.created_by)) {
-                const u = userMap.get(d.created_by)!
-                return { ...d, creator_name: u.display_name, creator_avatar: u.avatar_url }
-              }
-              return d
-            })
-          }
+      // 单独查询所有创建者信息
+      const creatorIds = [...new Set(filtered.map(d => d.created_by).filter(Boolean))]
+      const creatorMap = new Map<string, { display_name: string | null; avatar_url: string | null }>()
+
+      // 先用当前登录用户的信息作为兜底
+      if (user) {
+        creatorMap.set(user.id, { display_name: user.display_name, avatar_url: user.avatar_url })
+      }
+
+      if (creatorIds.length > 0) {
+        const { data: usersData, error: usersError } = await supabase
+          .from('jkb_users')
+          .select('id, display_name, avatar_url')
+          .in('id', creatorIds)
+
+        if (usersError) {
+          console.warn('[DocList] 查询创建者信息失败:', usersError.message)
+        }
+        if (usersData) {
+          usersData.forEach(u => creatorMap.set(u.id, { display_name: u.display_name, avatar_url: u.avatar_url }))
         }
       }
+
+      // 将创建者信息合并到文档数据
+      filtered = filtered.map(d => {
+        if (d.created_by && creatorMap.has(d.created_by)) {
+          const u = creatorMap.get(d.created_by)!
+          return { ...d, creator_name: u.display_name || undefined, creator_avatar: u.avatar_url }
+        }
+        return d
+      })
 
       // 按访问权限过滤文档
       if (user) {
@@ -300,20 +311,25 @@ export default function DocumentsPage() {
   const handleDelete = async (doc: DocRow) => {
     if (!confirm(`确定要删除文档"${doc.title}"吗？`)) return
     try {
-      const now = new Date().toISOString()
+      // 先从本地状态移除，立即更新 UI
+      setDocuments(prev => prev.filter(d => d.id !== doc.id))
+
+      // 直接硬删除（最可靠）
       const { error } = await supabase
         .from('jkb_documents')
-        .update({ deleted_at: now, is_deleted: true })
+        .delete()
         .eq('id', doc.id)
+
       if (error) {
-        await supabase.from('jkb_documents').delete().eq('id', doc.id)
+        console.error('[DocDelete] 硬删除失败:', error.message)
+        // 硬删除失败，恢复本地状态
+        setDocuments(prev => [doc, ...prev])
+        throw error
       }
+
       toast.success('文档已删除')
-      // 强制刷新列表
-      refreshRef.current += 1
-      await loadDocuments()
-    } catch (err) {
-      toast.error('删除失败')
+    } catch (err: any) {
+      toast.error(err.message || '删除失败')
     }
   }
 
@@ -522,9 +538,9 @@ export default function DocumentsPage() {
             const visibleDepartments = doc.visible_department_ids && doc.visible_department_ids.length > 0
               ? departments.filter(d => doc.visible_department_ids!.includes(d.id))
               : []
-            // 创建者名称：优先用外键关联，降级用单独查询
-            const creatorName = doc.jkb_users?.[0]?.display_name || doc.creator_name || '未知'
-            const creatorAvatar = doc.jkb_users?.[0]?.avatar_url ?? doc.creator_avatar ?? null
+            // 创建者名称：从单独查询结果获取
+            const creatorName = doc.creator_name || '未知'
+            const creatorAvatar = doc.creator_avatar ?? null
             return (
               <div
                 key={doc.id}

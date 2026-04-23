@@ -89,6 +89,7 @@ export const userService = {
       password: string
       display_name: string
       role_code?: string
+      department_code?: string
     }>
   ): Promise<{ success: number; failed: number; errors: string[] }> => {
     let success = 0
@@ -123,6 +124,23 @@ export const userService = {
             await supabase.from('jkb_user_roles').insert({
               user_id: newUser.id,
               role_id: role.id,
+            })
+          }
+        }
+
+        // 按部门编码分配部门
+        if (user.department_code) {
+          const { data: dept } = await supabase
+            .from('jkb_departments')
+            .select('id')
+            .eq('code', user.department_code)
+            .single()
+
+          if (dept) {
+            await supabase.from('jkb_user_departments').insert({
+              user_id: newUser.id,
+              department_id: dept.id,
+              is_primary: true,
             })
           }
         }

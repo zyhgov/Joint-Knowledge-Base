@@ -29,17 +29,17 @@ ALTER TABLE jkb_documents ADD COLUMN IF NOT EXISTS access_level VARCHAR(20) DEFA
 ALTER TABLE jkb_documents ADD COLUMN IF NOT EXISTS visible_department_ids UUID[] DEFAULT '{}';
 ALTER TABLE jkb_documents ADD COLUMN IF NOT EXISTS visible_workspace_ids UUID[] DEFAULT '{}';
 
--- RLS 策略
+-- RLS 策略（自定义认证项目不可依赖 auth.uid()，需用 true 放行，业务层做权限校验）
 ALTER TABLE jkb_document_shares ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "文档分享-所有人可读" ON jkb_document_shares
   FOR SELECT USING (true);
 
-CREATE POLICY "文档分享-创建者可写" ON jkb_document_shares
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+CREATE POLICY "文档分享-认证用户可插入" ON jkb_document_shares
+  FOR INSERT WITH CHECK (true);
 
-CREATE POLICY "文档分享-创建者可更新" ON jkb_document_shares
+CREATE POLICY "文档分享-可更新" ON jkb_document_shares
   FOR UPDATE USING (true);
 
-CREATE POLICY "文档分享-创建者可删除" ON jkb_document_shares
+CREATE POLICY "文档分享-可删除" ON jkb_document_shares
   FOR DELETE USING (true);
