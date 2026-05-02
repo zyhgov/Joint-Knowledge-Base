@@ -55,7 +55,19 @@ VALUES
 
   -- 通知/公告
   (gen_random_uuid(), '通知管理', 'notification_manage', '允许发送和管理通知', 'notification', 'manage', now()),
-  (gen_random_uuid(), '公告管理', 'announcement_manage', '允许发布和管理公告与任务', 'announcement', 'manage', now())
+  (gen_random_uuid(), '公告管理', 'announcement_manage', '允许发布和管理公告与任务', 'announcement', 'manage', now()),
+
+  -- AI 对话
+  (gen_random_uuid(), '使用 AI 对话', 'ai_chat_read', '允许使用 AI 对话功能', 'ai_chat', 'read', now()),
+  (gen_random_uuid(), '管理 AI 对话', 'ai_chat_manage', '查看所有用户对话记录、封禁/解封用户、编辑知识预设', 'ai_chat', 'manage', now()),
+
+  -- 人力资源
+  (gen_random_uuid(), '查看人力资源', 'hr_read', '查看人力资源管理页面', 'hr', 'read', now()),
+  (gen_random_uuid(), '管理人力资源', 'hr_manage', '管理人力资源配置', 'hr', 'manage', now()),
+
+  -- 审批
+  (gen_random_uuid(), '查看审批', 'approval_read', '查看审批管理页面', 'approval', 'read', now()),
+  (gen_random_uuid(), '管理审批', 'approval_manage', '处理和管理审批请求', 'approval', 'manage', now())
 ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name,
   description = EXCLUDED.description,

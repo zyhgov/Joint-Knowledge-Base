@@ -2,6 +2,10 @@ name = "collab-docs-server"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
 
+# AI 对话默认模型
+[vars]
+VOLC_MODEL = "doubao-seed-1-8-251228"
+
 # Durable Objects 绑定
 [durable_objects]
 bindings = [

@@ -23,6 +23,8 @@ import DocumentsPage from '@/pages/Document/DocumentsPage'
 import { DocumentEditorWrapper } from '@/pages/Document/DocumentEditor'
 import DocumentShareView from '@/pages/Document/DocumentShareView'
 import TransferFanPage from '@/pages/TransferFan/TransferFanPage'
+import AIChat from '@/pages/AIChat/AIChat'
+import AIChatAdmin from '@/pages/AIChat/AIChatAdmin'
 import PreviewPlaceholder from '@/pages/Admin/PreviewPlaceholder'
 
 // Windows 10/11 风格加载页
@@ -216,7 +218,7 @@ function App() {
         <Route
           path="/admin/hr"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['hr_read', 'hr_manage']}>
               <MainLayout title="人力资源管理">
                 <PreviewPlaceholder title="人力资源管理" />
               </MainLayout>
@@ -227,9 +229,20 @@ function App() {
         <Route
           path="/admin/approval"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['approval_read', 'approval_manage']}>
               <MainLayout title="审批管理">
                 <PreviewPlaceholder title="审批管理" />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/ai-chat"
+          element={
+            <ProtectedRoute requiredPerms={['ai_chat_manage']}>
+              <MainLayout title="AI 对话管理">
+                <AIChatAdmin />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -336,9 +349,21 @@ function App() {
 
         {/* 转粉工单 */}
         <Route
+          path="/ai-chat"
+          element={
+            <ProtectedRoute requiredPerms={['ai_chat_read']}>
+              <MainLayout title="和豆包聊聊" noPadding>
+                <AIChat />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 转粉工单 */}
+        <Route
           path="/transfer-fan"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['transfer_fan_read', 'transfer_fan_create', 'transfer_fan_manage']}>
               <MainLayout title="转粉工单">
                 <TransferFanPage />
               </MainLayout>

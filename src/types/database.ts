@@ -259,6 +259,65 @@ export interface UrgentLog {
   }
 }
 
+// AI 对话会话
+export interface AIChatConversation {
+  id: string
+  user_id: string
+  title: string
+  created_at: string
+  updated_at: string
+  is_deleted?: boolean
+  // 关联用户
+  user?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+  }
+  // 最后一条消息（用于预览）
+  last_message?: string
+  message_count?: number
+}
+
+// AI 对话消息
+export interface AIChatMessage {
+  id: string
+  conversation_id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  created_at: string
+}
+
+// AI 用户封禁
+export interface AIUserBan {
+  id: string
+  user_id: string
+  banned_by: string | null
+  reason: string | null
+  banned_at: string
+  // 关联用户
+  user?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+  }
+  banned_by_user?: {
+    id: string
+    display_name: string | null
+  }
+}
+
+// AI 知识预设
+export interface AIKnowledgeBase {
+  id: string
+  content: string
+  updated_at: string
+  updated_by: string | null
+  updated_by_user?: {
+    id: string
+    display_name: string | null
+  }
+}
+
 export const TRANSFER_FAN_STATUS_COLORS: Record<string, string> = {
   submitted: 'text-blue-600 bg-blue-50',
   pending: 'text-amber-600 bg-amber-50',

@@ -48,6 +48,18 @@ export const PERM = {
   TRANSFER_FAN_READ: 'transfer_fan_read',
   TRANSFER_FAN_CREATE: 'transfer_fan_create',
   TRANSFER_FAN_MANAGE: 'transfer_fan_manage',
+
+  // AI 对话
+  AI_CHAT_READ: 'ai_chat_read',
+  AI_CHAT_MANAGE: 'ai_chat_manage',
+
+  // 人力资源
+  HR_READ: 'hr_read',
+  HR_MANAGE: 'hr_manage',
+
+  // 审批
+  APPROVAL_READ: 'approval_read',
+  APPROVAL_MANAGE: 'approval_manage',
 } as const
 
 export type PermissionCode = (typeof PERM)[keyof typeof PERM]

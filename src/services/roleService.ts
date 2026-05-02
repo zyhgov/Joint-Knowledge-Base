@@ -258,6 +258,15 @@ export const roleService = {
       { name: '查看转粉工单', code: 'transfer_fan_read', resource: 'transfer_fan', action: 'read', description: '查看转粉工单列表' },
       { name: '创建转粉工单', code: 'transfer_fan_create', resource: 'transfer_fan', action: 'create', description: '创建转粉工单' },
       { name: '管理转粉工单', code: 'transfer_fan_manage', resource: 'transfer_fan', action: 'manage', description: '处理和管理所有转粉工单' },
+      // AI 对话
+      { name: '使用 AI 对话', code: 'ai_chat_read', resource: 'ai_chat', action: 'read', description: '使用 AI 对话功能' },
+      { name: '管理 AI 对话', code: 'ai_chat_manage', resource: 'ai_chat', action: 'manage', description: '查看所有用户对话记录、封禁/解封用户、编辑知识预设' },
+      // 人力资源
+      { name: '查看人力资源', code: 'hr_read', resource: 'hr', action: 'read', description: '查看人力资源管理页面' },
+      { name: '管理人力资源', code: 'hr_manage', resource: 'hr', action: 'manage', description: '管理人力资源配置' },
+      // 审批
+      { name: '查看审批', code: 'approval_read', resource: 'approval', action: 'read', description: '查看审批管理页面' },
+      { name: '管理审批', code: 'approval_manage', resource: 'approval', action: 'manage', description: '处理和管理审批请求' },
     ]
 
     // 获取已有权限（用 code 和 resource+action 两个维度过滤）

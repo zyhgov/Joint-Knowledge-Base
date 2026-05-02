@@ -32,6 +32,8 @@ import {
   InformationCircleIcon,
   UsersIcon,
   ClipboardDocumentCheckIcon,
+  ChatBubbleLeftRightIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 
 interface SidebarProps {
@@ -39,11 +41,19 @@ interface SidebarProps {
   onToggleCollapse: () => void
 }
 
+const DOUBAO_AVATAR = '/doubao/doubao_avatar.png'
+
+// 豆包图片图标
+function DoubaoIcon({ className }: { className?: string }) {
+  return <img src={DOUBAO_AVATAR} alt="豆包" className={`${className} rounded-full object-cover`} />
+}
+
 const menuItems = [
   { name: '仪表板', icon: HomeIcon, path: '/dashboard', perm: null },
   { name: '协作文档', icon: DocumentTextIcon, path: '/documents', perm: ['document_read'] },
   { name: '工作区', icon: FolderIcon, path: '/workspaces', perm: ['workspace_read'] },
   { name: '文件', icon: PaperClipIcon, path: '/files', perm: ['file_read'] },
+  { name: '和豆包聊聊', icon: DoubaoIcon, path: '/ai-chat', perm: ['ai_chat_read'] },
 ]
 
 const adminMenuItems = [
@@ -54,8 +64,9 @@ const adminMenuItems = [
   { name: '公告与任务', icon: MegaphoneIcon, path: '/admin/announcements', perm: ['announcement_read', 'announcement_manage'] },
   { name: '文件统计', icon: ChartBarIcon, path: '/stats', perm: ['stats_read'] },
   { name: '转粉统计', icon: ArrowTrendingUpIcon, path: '/stats/transfer-fan', perm: ['stats_read'] },
-  { name: '人力资源管理', icon: UsersIcon, path: '/admin/hr', perm: null },
-  { name: '审批管理', icon: ClipboardDocumentCheckIcon, path: '/admin/approval', perm: null },
+  { name: '人力资源管理', icon: UsersIcon, path: '/admin/hr', perm: ['hr_read', 'hr_manage'] },
+  { name: '审批管理', icon: ClipboardDocumentCheckIcon, path: '/admin/approval', perm: ['approval_read', 'approval_manage'] },
+  { name: 'AI 对话管理', icon: ChatBubbleLeftRightIcon, path: '/admin/ai-chat', perm: ['ai_chat_manage'] },
 ]
 
 const roleLabels: Record<string, string> = {
@@ -191,11 +202,11 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                     className={cn(
                       'flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
                       active
-                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        ? 'bg-[#dddde0] dark:bg-[#2a2a2e] text-foreground shadow-sm'
                         : 'text-foreground/70 hover:bg-accent hover:text-foreground'
                     )}
                   >
-                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    <item.icon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
                     <span className="truncate">{item.name}</span>
                   </Link>
                 )
@@ -219,12 +230,12 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                   className={cn(
                     'flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
                     active
-                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      ? 'bg-[#dddde0] dark:bg-[#2a2a2e] text-foreground shadow-sm'
                       : 'text-foreground/70 hover:bg-accent hover:text-foreground',
                     collapsed && 'justify-center px-2'
                   )}
                 >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
+                  <item.icon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
                   {!collapsed && <span className="truncate">{item.name}</span>}
                 </Link>
               )
@@ -237,12 +248,12 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
               className={cn(
                 'flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
                 location.pathname === '/transfer-fan'
-                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  ? 'bg-[#dddde0] dark:bg-[#2a2a2e] text-foreground shadow-sm'
                   : 'text-foreground/70 hover:bg-accent hover:text-foreground',
                 collapsed && 'justify-center px-2'
               )}
             >
-              <UserPlusIcon className="h-5 w-5 flex-shrink-0" />
+              <UserPlusIcon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
               {!collapsed && <span className="truncate">转粉工单</span>}
             </Link>
 
@@ -268,12 +279,12 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                       className={cn(
                         'flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
                         active
-                          ? 'bg-primary text-primary-foreground shadow-sm'
+                          ? 'bg-[#dddde0] dark:bg-[#2a2a2e] text-foreground shadow-sm'
                           : 'text-foreground/70 hover:bg-accent hover:text-foreground',
                         collapsed && 'justify-center px-2'
                       )}
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
+                      <item.icon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
                       {!collapsed && <span className="truncate">{item.name}</span>}
                     </Link>
                   )
@@ -292,12 +303,12 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
           className={cn(
             'flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
             location.pathname === '/settings'
-              ? 'bg-primary text-primary-foreground'
+              ? 'bg-[#dddde0] dark:bg-[#2a2a2e] text-foreground'
               : 'text-foreground/70 hover:bg-accent hover:text-foreground',
             collapsed && 'justify-center'
           )}
         >
-          <Cog6ToothIcon className="h-5 w-5 flex-shrink-0" />
+          <Cog6ToothIcon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
           {!collapsed && <span>设置</span>}
         </Link>
 
@@ -309,7 +320,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
             collapsed && 'justify-center'
           )}
         >
-          <InformationCircleIcon className="h-5 w-5 flex-shrink-0" />
+          <InformationCircleIcon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
           {!collapsed && <span>关于本站</span>}
         </button>
 
@@ -322,10 +333,10 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
           )}
         >
           {collapsed ? (
-            <ChevronRightIcon className="h-5 w-5 flex-shrink-0" />
+            <ChevronRightIcon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
           ) : (
             <>
-              <ChevronLeftIcon className="h-5 w-5 flex-shrink-0" />
+              <ChevronLeftIcon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
               <span>折叠侧边栏</span>
             </>
           )}

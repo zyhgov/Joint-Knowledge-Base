@@ -412,9 +412,9 @@ export default function TransferFanPage() {
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="h-full flex flex-col">
       {/* 页面标题 + Tab切换 */}
-      <div className="border-b border-border bg-card px-6 pt-4">
+      <div className="border-b border-border px-6 pt-4">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">转粉工单管理</h1>
