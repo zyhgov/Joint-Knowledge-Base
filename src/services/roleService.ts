@@ -254,6 +254,10 @@ export const roleService = {
       { name: '编辑公告', code: 'announcement_update', resource: 'announcement', action: 'update', description: '编辑公告和任务' },
       { name: '删除公告', code: 'announcement_delete', resource: 'announcement', action: 'delete', description: '删除公告和任务' },
       { name: '管理公告', code: 'announcement_manage', resource: 'announcement', action: 'manage', description: '管理所有公告和任务' },
+      // 转粉工单
+      { name: '查看转粉工单', code: 'transfer_fan_read', resource: 'transfer_fan', action: 'read', description: '查看转粉工单列表' },
+      { name: '创建转粉工单', code: 'transfer_fan_create', resource: 'transfer_fan', action: 'create', description: '创建转粉工单' },
+      { name: '管理转粉工单', code: 'transfer_fan_manage', resource: 'transfer_fan', action: 'manage', description: '处理和管理所有转粉工单' },
     ]
 
     // 获取已有权限（用 code 和 resource+action 两个维度过滤）

@@ -2,6 +2,14 @@ import React, { useState, useMemo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { hasAnyPermission } from '@/utils/permission'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/store/authStore'
 import UserAvatar from '@/components/common/UserAvatar'
 import { BuildingOfficeIcon } from '@heroicons/react/24/outline'
@@ -19,6 +27,11 @@ import {
   BellIcon,
   ChartBarIcon,
   MegaphoneIcon,
+  UserPlusIcon,
+  ArrowTrendingUpIcon,
+  InformationCircleIcon,
+  UsersIcon,
+  ClipboardDocumentCheckIcon,
 } from '@heroicons/react/24/outline'
 
 interface SidebarProps {
@@ -40,6 +53,9 @@ const adminMenuItems = [
   { name: '通知管理', icon: BellIcon, path: '/admin/notifications', perm: ['notification_read', 'notification_manage'] },
   { name: '公告与任务', icon: MegaphoneIcon, path: '/admin/announcements', perm: ['announcement_read', 'announcement_manage'] },
   { name: '文件统计', icon: ChartBarIcon, path: '/stats', perm: ['stats_read'] },
+  { name: '转粉统计', icon: ArrowTrendingUpIcon, path: '/stats/transfer-fan', perm: ['stats_read'] },
+  { name: '人力资源管理', icon: UsersIcon, path: '/admin/hr', perm: null },
+  { name: '审批管理', icon: ClipboardDocumentCheckIcon, path: '/admin/approval', perm: null },
 ]
 
 const roleLabels: Record<string, string> = {
@@ -62,6 +78,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const navigate = useNavigate()
   const { user, userPermissions } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
+  const [aboutOpen, setAboutOpen] = useState(false)
 
 
   // 根据权限判断是否显示管理菜单（每个菜单项独立判断）
@@ -213,6 +230,22 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
               )
             })}
 
+            {/* 转粉工单 */}
+            <Link
+              to="/transfer-fan"
+              title={collapsed ? '转粉工单' : undefined}
+              className={cn(
+                'flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap',
+                location.pathname === '/transfer-fan'
+                  ? 'bg-primary text-primary-foreground shadow-sm'
+                  : 'text-foreground/70 hover:bg-accent hover:text-foreground',
+                collapsed && 'justify-center px-2'
+              )}
+            >
+              <UserPlusIcon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && <span className="truncate">转粉工单</span>}
+            </Link>
+
             {/* 管理员菜单 */}
             {hasAnyAdminPerm && (
               <>
@@ -269,6 +302,18 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
         </Link>
 
         <button
+          onClick={() => setAboutOpen(true)}
+          title={collapsed ? '关于本站' : undefined}
+          className={cn(
+            'w-full flex items-center gap-3 px-2 py-2 rounded-lg text-sm font-medium transition-all text-foreground/70 hover:bg-accent hover:text-foreground whitespace-nowrap',
+            collapsed && 'justify-center'
+          )}
+        >
+          <InformationCircleIcon className="h-5 w-5 flex-shrink-0" />
+          {!collapsed && <span>关于本站</span>}
+        </button>
+
+        <button
           onClick={onToggleCollapse}
           title={collapsed ? '展开' : '折叠'}
           className={cn(
@@ -286,6 +331,41 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
           )}
         </button>
       </div>
+      {/* 关于本站 */}
+      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-xl">关于本站</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 text-sm text-muted-foreground">
+            <p className="text-base font-medium text-foreground">
+              基于现代技术栈构建的协作平台
+            </p>
+
+            <div className="space-y-2">
+              <h4 className="font-semibold text-foreground">技术栈</h4>
+              <ul className="list-disc list-inside space-y-1 pl-1">
+                <li><span className="text-foreground">前端框架：</span>React + TypeScript</li>
+                <li><span className="text-foreground">UI 框架：</span>Radix UI + Tailwind CSS + shadcn/ui</li>
+                <li><span className="text-foreground">图表库：</span>ECharts</li>
+                <li><span className="text-foreground">数据库：</span>Supabase</li>
+                <li><span className="text-foreground">对象存储：</span>Cloudflare R2</li>
+                <li><span className="text-foreground">通知与协作：</span>Cloudflare Realtime</li>
+                <li><span className="text-foreground">部署：</span>Cloudflare Pages / Workers</li>
+                <li><span className="text-foreground">代码仓库：</span>GitHub</li>
+              </ul>
+            </div>
+
+            <div className="pt-2 border-t border-border">
+              <p className="text-foreground">
+                本平台由 <strong>杖雍皓</strong> 与 <strong>联合库 unhub</strong> 协同制作，
+                通过联合库 unhub 站点管理委员会审核发布。
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
     </aside>
   )
 }

@@ -187,6 +187,20 @@ export const userService = {
     if (error) throw error
   },
 
+  // 强制修改密码（更新密码+清除所有会话，强制用户重新登录）
+  forcePasswordChange: async (userId: string, newPassword: string): Promise<void> => {
+    const passwordHash = await cryptoService.hashPassword(newPassword)
+    const { error } = await supabase
+      .from('jkb_users')
+      .update({ password_hash: passwordHash })
+      .eq('id', userId)
+
+    if (error) throw error
+
+    // 清除所有会话，强制下线
+    await supabase.from('jkb_sessions').delete().eq('user_id', userId)
+  },
+
   // 停用用户（强制下线）
   deactivateUser: async (userId: string): Promise<void> => {
     // 先清除所有会话（立即强制下线）

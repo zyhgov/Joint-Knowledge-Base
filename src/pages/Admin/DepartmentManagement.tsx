@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { departmentService } from '@/services/departmentService'
 import { userService } from '@/services/userService'
 import { DepartmentTreeNode, JkbDepartment } from '@/types/database'
@@ -154,8 +154,39 @@ export default function DepartmentManagement() {
   const [departments, setDepartments] = useState<JkbDepartment[]>([])
   const [departmentTree, setDepartmentTree] = useState<DepartmentTreeNode[]>([])
   const [users, setUsers] = useState<UserWithDepartments[]>([])
-  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
+
+  // 从 users + departmentTree 派生出各部门递归人数
+  const memberCounts = useMemo(() => {
+    const directCounts: Record<string, number> = {}
+    users.forEach(u => {
+      const deptIds = [
+        u.primary_department?.id,
+        ...(u.extra_departments || []).map(d => d.id)
+      ].filter((id): id is string => Boolean(id))
+      deptIds.forEach(deptId => {
+        directCounts[deptId] = (directCounts[deptId] || 0) + 1
+      })
+    })
+
+    // 递归累加子部门人数
+    const accumulate = (nodes: DepartmentTreeNode[]): void => {
+      for (const node of nodes) {
+        let total = directCounts[node.id] || 0
+        if (node.children && node.children.length > 0) {
+          accumulate(node.children)
+          for (const child of node.children) {
+            total += result[child.id] || 0
+          }
+        }
+        result[node.id] = total
+      }
+    }
+
+    const result: Record<string, number> = {}
+    accumulate(departmentTree)
+    return result
+  }, [users, departmentTree])
 
   // 创建/编辑部门
   const [deptDialogOpen, setDeptDialogOpen] = useState(false)
@@ -180,15 +211,14 @@ export default function DepartmentManagement() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [deptsData, usersData, countsData] = await Promise.all([
+      const [deptsData, usersData] = await Promise.all([
         departmentService.getAllDepartments(),
         userService.getAllUsers(),
-        departmentService.getDepartmentMemberCounts(),
       ])
+      const tree = departmentService.buildDepartmentTree(deptsData)
       setDepartments(deptsData)
-      setDepartmentTree(departmentService.buildDepartmentTree(deptsData))
+      setDepartmentTree(tree)
       setUsers(usersData)
-      setMemberCounts(countsData)
     } catch (error: any) {
       toast.error('加载失败: ' + error.message)
     } finally {

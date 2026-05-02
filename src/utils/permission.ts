@@ -43,6 +43,11 @@ export const PERM = {
   // 通知/公告
   NOTIFICATION_MANAGE: 'notification_manage',
   ANNOUNCEMENT_MANAGE: 'announcement_manage',
+
+  // 转粉工单
+  TRANSFER_FAN_READ: 'transfer_fan_read',
+  TRANSFER_FAN_CREATE: 'transfer_fan_create',
+  TRANSFER_FAN_MANAGE: 'transfer_fan_manage',
 } as const
 
 export type PermissionCode = (typeof PERM)[keyof typeof PERM]

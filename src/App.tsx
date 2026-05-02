@@ -18,9 +18,12 @@ import FilesPage from '@/pages/Files/FilesPage'
 import FileShareView from '@/pages/Files/FileShareView'
 import WorkspacesPage from '@/pages/Workspaces/WorkspacesPage'
 import FileStats from '@/pages/Stats/FileStats'
+import TransferFanStats from '@/pages/Stats/TransferFanStats'
 import DocumentsPage from '@/pages/Document/DocumentsPage'
 import { DocumentEditorWrapper } from '@/pages/Document/DocumentEditor'
 import DocumentShareView from '@/pages/Document/DocumentShareView'
+import TransferFanPage from '@/pages/TransferFan/TransferFanPage'
+import PreviewPlaceholder from '@/pages/Admin/PreviewPlaceholder'
 
 // Windows 10/11 风格加载页
 function LoadingScreen() {
@@ -180,7 +183,7 @@ function App() {
         <Route
           path="/admin/users"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['user_read', 'user_manage']}>
               <MainLayout title="用户管理">
                 <UserManagement />
               </MainLayout>
@@ -191,7 +194,7 @@ function App() {
         <Route
           path="/admin/roles"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['role_read', 'role_manage']}>
               <MainLayout title="角色权限">
                 <RoleManagement />
               </MainLayout>
@@ -202,9 +205,31 @@ function App() {
         <Route
           path="/admin/departments"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['department_read', 'department_manage']}>
               <MainLayout title="部门管理">
                 <DepartmentManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/hr"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="人力资源管理">
+                <PreviewPlaceholder title="人力资源管理" />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/approval"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="审批管理">
+                <PreviewPlaceholder title="审批管理" />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -223,7 +248,7 @@ function App() {
         <Route
           path="/files"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['file_read']}>
               <MainLayout title="文件管理">
                 <FilesPage />
               </MainLayout>
@@ -234,7 +259,7 @@ function App() {
         <Route
           path="/workspaces"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['workspace_read']}>
               <MainLayout title="工作区">
                 <WorkspacesPage />
               </MainLayout>
@@ -245,7 +270,7 @@ function App() {
         <Route
           path="/admin/notifications"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['notification_read', 'notification_manage']}>
               <MainLayout title="通知管理">
                 <NotificationManagement />
               </MainLayout>
@@ -256,7 +281,7 @@ function App() {
         <Route
           path="/admin/announcements"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['announcement_read', 'announcement_manage']}>
               <MainLayout title="公告与任务">
                 <AnnouncementManagement />
               </MainLayout>
@@ -267,9 +292,21 @@ function App() {
         <Route
           path="/stats"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['stats_read']}>
               <MainLayout title="文件统计">
                 <FileStats />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 转粉统计 */}
+        <Route
+          path="/stats/transfer-fan"
+          element={
+            <ProtectedRoute requiredPerms={['stats_read']}>
+              <MainLayout title="转粉统计">
+                <TransferFanStats />
               </MainLayout>
             </ProtectedRoute>
           }
@@ -279,7 +316,7 @@ function App() {
         <Route
           path="/documents"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['document_read']}>
               <MainLayout title="协作文档">
                 <DocumentsPage />
               </MainLayout>
@@ -289,9 +326,21 @@ function App() {
         <Route
           path="/documents/:docId"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requiredPerms={['document_read']}>
               <MainLayout title="文档编辑">
                 <DocumentEditorWrapper />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 转粉工单 */}
+        <Route
+          path="/transfer-fan"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="转粉工单">
+                <TransferFanPage />
               </MainLayout>
             </ProtectedRoute>
           }

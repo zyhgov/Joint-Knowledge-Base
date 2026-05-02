@@ -32,6 +32,7 @@ import {
   ChevronDownIcon,
   ChevronDoubleDownIcon,
   ChevronDoubleUpIcon,
+  KeyIcon,
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
@@ -90,6 +91,12 @@ export default function UserManagement() {
   // 导入用户
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [importData, setImportData] = useState('')
+
+  // 强制修改密码
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false)
+  const [passwordTargetUser, setPasswordTargetUser] = useState<UserWithDepartments | null>(null)
+  const [newPassword, setNewPassword] = useState('')
+  const [resetPwdSaving, setResetPwdSaving] = useState(false)
 
   const [saving, setSaving] = useState(false)
 
@@ -229,6 +236,35 @@ export default function UserManagement() {
     }
   }
 
+  // 打开强制改密弹窗
+  const handleOpenResetPassword = (user: UserWithDepartments) => {
+    setPasswordTargetUser(user)
+    setNewPassword('')
+    setPasswordDialogOpen(true)
+  }
+
+  // 强制修改密码
+  const handleResetPassword = async () => {
+    if (!passwordTargetUser) return
+    if (!newPassword || newPassword.length < 6) {
+      toast.error('密码至少 6 位')
+      return
+    }
+    setResetPwdSaving(true)
+    try {
+      await userService.forcePasswordChange(passwordTargetUser.id, newPassword)
+      toast.success(`已为"${passwordTargetUser.display_name}"重置密码，用户已被强制下线需重新登录`)
+      setPasswordDialogOpen(false)
+      setPasswordTargetUser(null)
+      setNewPassword('')
+      loadData()
+    } catch (error: any) {
+      toast.error(error.message || '重置密码失败')
+    } finally {
+      setResetPwdSaving(false)
+    }
+  }
+
   // 批量导入
   const handleImport = async () => {
     if (!importData.trim()) {
@@ -313,7 +349,38 @@ export default function UserManagement() {
     }
   }
 
-  // 过滤用户
+  // 递归获取部门及其所有子部门的ID
+  const getAllSubDepartmentIds = (tree: DepartmentTreeNode[], deptId: string): string[] => {
+    const ids: string[] = []
+    const findInTree = (nodes: DepartmentTreeNode[]) => {
+      for (const node of nodes) {
+        if (node.id === deptId) {
+          const collectIds = (n: DepartmentTreeNode) => {
+            ids.push(n.id)
+            if (n.children && n.children.length > 0) {
+              n.children.forEach(collectIds)
+            }
+          }
+          collectIds(node)
+          return true
+        }
+        if (node.children && node.children.length > 0) {
+          if (findInTree(node.children)) return true
+        }
+      }
+      return false
+    }
+    findInTree(tree)
+    return ids
+  }
+
+  // 当前过滤部门及其所有子部门的ID集合
+  const filterDeptIdSet = useMemo(() => {
+    if (!filterDept) return new Set<string>()
+    return new Set(getAllSubDepartmentIds(departmentTree, filterDept))
+  }, [filterDept, departmentTree])
+
+  // 过滤用户（递归包含子部门）
   const filteredUsers = users.filter((user) => {
     let matchSearch = true
     if (searchTerm) {
@@ -333,10 +400,13 @@ export default function UserManagement() {
       }
     }
 
+    const userDeptIds = [
+      user.primary_department?.id,
+      ...user.extra_departments.map(d => d.id)
+    ].filter((id): id is string => Boolean(id))
     const matchDept =
       !filterDept ||
-      user.primary_department?.id === filterDept ||
-      user.extra_departments.some((d) => d.id === filterDept)
+      userDeptIds.some(id => filterDeptIdSet.has(id))
 
     const matchStatus =
       filterStatus === 'all' ||
@@ -354,19 +424,38 @@ export default function UserManagement() {
 
   const totalPages = Math.ceil(filteredUsers.length / pageSize)
 
-  // 计算每个部门的人数
+  // 递归计算每个部门的人数（包含子部门）
   const deptUserCounts = useMemo(() => {
-    const counts = new Map<string, number>()
+    // 先计算各部门直接人数
+    const directCounts: Record<string, number> = {}
     users.forEach((u) => {
-      if (u.primary_department?.id) {
-        counts.set(u.primary_department.id, (counts.get(u.primary_department.id) || 0) + 1)
-      }
-      u.extra_departments.forEach((d) => {
-        counts.set(d.id, (counts.get(d.id) || 0) + 1)
+      const deptIds = [
+        u.primary_department?.id,
+        ...(u.extra_departments || []).map(d => d.id)
+      ].filter((id): id is string => Boolean(id))
+      deptIds.forEach(deptId => {
+        directCounts[deptId] = (directCounts[deptId] || 0) + 1
       })
     })
-    return counts
-  }, [users])
+
+    // 递归累加子部门人数
+    const accumulate = (nodes: DepartmentTreeNode[]): Map<string, number> => {
+      const result = new Map<string, number>()
+      for (const node of nodes) {
+        let total = directCounts[node.id] || 0
+        if (node.children && node.children.length > 0) {
+          const childCounts = accumulate(node.children)
+          for (const [, childCount] of childCounts) {
+            total += childCount
+          }
+        }
+        result.set(node.id, total)
+      }
+      return result
+    }
+
+    return accumulate(departmentTree)
+  }, [users, departmentTree])
 
   // 递归获取所有部门 ID
   const getAllDeptIds = (nodes: DepartmentTreeNode[]): string[] => {
@@ -797,6 +886,13 @@ export default function UserManagement() {
                             </button>
                           )}
                           <button
+                            onClick={() => handleOpenResetPassword(user)}
+                            className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-md transition-colors text-muted-foreground hover:text-amber-600"
+                            title="强制修改密码"
+                          >
+                            <KeyIcon className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => handleDelete(user)}
                             className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"
                             title="删除"
@@ -1208,6 +1304,50 @@ export default function UserManagement() {
             </Button>
             <Button onClick={handleSaveEdit} disabled={saving}>
               {saving ? '保存中...' : '保存'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 强制修改密码弹窗 */}
+      <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>强制修改密码</DialogTitle>
+            <DialogDescription>
+              为用户 <strong>{passwordTargetUser?.display_name}</strong> ({passwordTargetUser?.phone}) 设置新密码，该用户将被强制下线并需使用新密码重新登录。
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>新密码</Label>
+              <Input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="至少 6 位"
+                className="mt-2"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setPasswordDialogOpen(false)
+                setPasswordTargetUser(null)
+                setNewPassword('')
+              }}
+            >
+              取消
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={resetPwdSaving || !newPassword}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+            >
+              {resetPwdSaving ? '重置中...' : '确认重置'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -201,3 +201,54 @@ export interface UserWithDepartments {
   extra_departments: JkbDepartment[]
   roles: import('./rbac').Role[]
 }
+
+// 转粉工单
+export interface TransferFanOrder {
+  id: string
+  source_user_ids: string[]
+  target_user_id: string
+  status: 'submitted' | 'pending' | 'processed' | 'cancelled' | 'rejected'
+  reject_reason: string | null
+  remark: string | null
+  created_by: string
+  processed_by: string | null
+  processed_at: string | null
+  created_at: string
+  updated_at: string
+  // 关联数据（通过SQL join获取）
+  target_user?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+    avatar_url: string | null
+  }
+  creator?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+    avatar_url: string | null
+  }
+  processor?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+    avatar_url: string | null
+  }
+}
+
+// 转粉工单状态枚举
+export const TRANSFER_FAN_STATUS_LABELS: Record<string, string> = {
+  submitted: '已提交',
+  pending: '待处理',
+  processed: '已处理',
+  cancelled: '已取消',
+  rejected: '驳回',
+}
+
+export const TRANSFER_FAN_STATUS_COLORS: Record<string, string> = {
+  submitted: 'text-blue-600 bg-blue-50',
+  pending: 'text-amber-600 bg-amber-50',
+  processed: 'text-green-600 bg-green-50',
+  cancelled: 'text-gray-500 bg-gray-50',
+  rejected: 'text-red-600 bg-red-50',
+}

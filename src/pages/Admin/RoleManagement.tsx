@@ -257,6 +257,7 @@ export default function RoleManagement() {
     poem: '古诗',
     settings: '设置',
     announcement: '公告与任务',
+    transfer_fan: '转粉工单',
   }
 
   // 操作名称映射
@@ -562,15 +563,15 @@ export default function RoleManagement() {
 
       {/* 编辑角色弹窗 */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>编辑角色</DialogTitle>
             <DialogDescription>
               修改角色信息和权限配置
             </DialogDescription>
           </DialogHeader>
           {editingRole && (
-            <div className="space-y-4">
+            <div className="flex-1 overflow-y-auto min-h-0 space-y-4 px-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <Label>角色名称</Label>
@@ -634,7 +635,7 @@ export default function RoleManagement() {
               </div>
             </div>
           )}
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4">
             <Button
               variant="outline"
               onClick={() => {
@@ -647,6 +648,87 @@ export default function RoleManagement() {
             <Button onClick={handleUpdateRole} disabled={editingRole?.is_system}>
               {editingRole?.is_system ? '系统角色不可编辑' : '保存更改'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 新建角色弹窗 */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle>新建角色</DialogTitle>
+            <DialogDescription>
+              创建新角色并分配相应权限
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto min-h-0 space-y-4 px-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>角色名称</Label>
+                <Input
+                  value={newRole.name}
+                  onChange={(e) => setNewRole({ ...newRole, name: e.target.value })}
+                  placeholder="例如: 项目经理"
+                  className="mt-2"
+                />
+              </div>
+              <div>
+                <Label>角色编码</Label>
+                <Input
+                  value={newRole.code}
+                  onChange={(e) =>
+                    setNewRole({ ...newRole, code: e.target.value.toLowerCase() })
+                  }
+                  placeholder="例如: project_manager"
+                  className="mt-2"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label>角色描述</Label>
+              <Input
+                value={newRole.description}
+                onChange={(e) =>
+                  setNewRole({ ...newRole, description: e.target.value })
+                }
+                placeholder="简要描述该角色的职责"
+                className="mt-2"
+              />
+            </div>
+
+            <div>
+              <Label>权重级别</Label>
+              <Input
+                type="number"
+                value={newRole.level}
+                onChange={(e) =>
+                  setNewRole({ ...newRole, level: parseInt(e.target.value) })
+                }
+                min="1"
+                max="99"
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                数字越大权限越高（1-99，系统角色保留100）
+              </p>
+            </div>
+
+            <div>
+              <Label>权限配置</Label>
+              <div className="mt-2">
+                <PermissionSelector
+                  selectedPermissionIds={newRole.permission_ids}
+                  isEditing={false}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-shrink-0 pt-4">
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleCreateRole}>创建</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
