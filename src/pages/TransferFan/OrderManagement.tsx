@@ -87,6 +87,52 @@ export default function OrderManagement() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [editResubmit, setEditResubmit] = useState(false)
 
+  // 过滤部门树：只保留当前用户所属部门（去掉祖先层级）
+  const filterDeptTreeByUser = useCallback((tree: DepartmentTreeNode[], userDeptIds: string[]): DepartmentTreeNode[] => {
+    return tree.reduce((result, node) => {
+      const nodeIsUserDept = userDeptIds.includes(node.id)
+      const filteredChildren = node.children ? filterDeptTreeByUser(node.children, userDeptIds) : []
+      if (nodeIsUserDept) {
+        result.push({ ...node, children: filteredChildren })
+      } else if (filteredChildren.length > 0) {
+        result.push(...filteredChildren)
+      }
+      return result
+    }, [] as DepartmentTreeNode[])
+  }, [])
+
+  // 当前用户所属部门ID列表
+  const currentUserDeptIds = useMemo(() => {
+    if (isAdmin) return [] // 管理员不限制
+    const me = allUsers.find(u => u.id === currentUser?.id)
+    if (!me) return []
+    return [
+      me.primary_department?.id,
+      ...(me.extra_departments || []).map(d => d.id)
+    ].filter((id): id is string => Boolean(id))
+  }, [allUsers, currentUser?.id, isAdmin])
+
+  // 只显示当前用户所属的部门树（非管理员）
+  const userDepartmentTree = useMemo(() => {
+    if (isAdmin || currentUserDeptIds.length === 0) return departments
+    return filterDeptTreeByUser(departments, currentUserDeptIds)
+  }, [departments, currentUserDeptIds, isAdmin, filterDeptTreeByUser])
+
+  // 用户部门树的扁平列表
+  const userFlatDepartments = useMemo(() => {
+    const result: Array<DepartmentTreeNode & { level: number }> = []
+    const flatten = (nodes: DepartmentTreeNode[], level: number) => {
+      for (const node of nodes) {
+        result.push({ ...node, level })
+        if (node.children && node.children.length > 0) {
+          flatten(node.children, level + 1)
+        }
+      }
+    }
+    flatten(userDepartmentTree, 0)
+    return result
+  }, [userDepartmentTree])
+
   // 部门树平铺
   const flatDepartments = useMemo(() => {
     const result: Array<DepartmentTreeNode & { level: number }> = []
@@ -152,16 +198,18 @@ export default function OrderManagement() {
 
   // 根据选中部门过滤的用户列表（用于联动筛选下拉框）
   const filteredByDeptUsers = useMemo(() => {
-    if (filterDepartmentId === 'all') return allUsers
-    const deptIds = getAllSubDepartmentIds(filterDepartmentId)
+    const scopeDeptIds = filterDepartmentId === 'all'
+      ? (isAdmin ? undefined : (currentUserDeptIds.length > 0 ? currentUserDeptIds : undefined))
+      : getAllSubDepartmentIds(filterDepartmentId)
+    if (!scopeDeptIds) return allUsers
     return allUsers.filter(u => {
       const userDeptIds = [
         u.primary_department?.id,
         ...(u.extra_departments || []).map(d => d.id)
       ].filter((id): id is string => Boolean(id))
-      return userDeptIds.some(id => deptIds.includes(id))
+      return userDeptIds.some(id => scopeDeptIds.includes(id))
     })
-  }, [allUsers, filterDepartmentId, getAllSubDepartmentIds])
+  }, [allUsers, filterDepartmentId, getAllSubDepartmentIds, isAdmin, currentUserDeptIds])
 
   // 根据选中部门过滤的角色列表（用于联动筛选下拉框）
   const filteredByDeptRoles = useMemo(() => {
@@ -571,8 +619,8 @@ export default function OrderManagement() {
             <DepartmentTreeSelect
               value={filterDepartmentId}
               onValueChange={(v) => handleFilterChange(setFilterDepartmentId, v)}
-              departments={departments}
-              flatDepartments={flatDepartments}
+              departments={userDepartmentTree}
+              flatDepartments={userFlatDepartments}
               label="部门"
             />
           </div>
@@ -648,11 +696,16 @@ export default function OrderManagement() {
           <Button
             size="sm"
             className="bg-orange-600 hover:bg-orange-700 text-white border-0"
-            onClick={() => {
-              toast.success(
-                '🚀 已提交紧急转粉申请！\n\n管理员已收到您的加急请求，\n将优先处理您的转粉工单，\n请耐心等待处理结果。',
-                { duration: 5000 }
-              )
+            onClick={async () => {
+              try {
+                await transferFanService.logUrgentClick(currentUser!.id)
+                toast.success(
+                  '🚀 已提交紧急转粉申请！\n\n管理员已收到您的加急请求，\n将优先处理您的转粉工单，\n请耐心等待处理结果。',
+                  { duration: 5000 }
+                )
+              } catch (err) {
+                toast.error('提交加急申请失败，请重试')
+              }
             }}
           >
             <BoltIcon className="h-3.5 w-3.5 mr-1" />转粉加急

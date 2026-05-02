@@ -12,7 +12,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import { transferFanStatsService } from '@/services/transferFanStatsService'
 import { userService } from '@/services/userService'
 import { departmentService } from '@/services/departmentService'
-import { TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, UserWithDepartments, DepartmentTreeNode } from '@/types/database'
+import { TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, UserWithDepartments, DepartmentTreeNode, UrgentLog } from '@/types/database'
 import { useThemeStore } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -28,6 +28,7 @@ import {
   TrophyIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import { StatCardSkeleton, ChartSkeleton } from '@/components/common/Skeleton'
 
@@ -48,6 +49,7 @@ export default function TransferFanStats() {
   const { actualTheme } = useThemeStore()
   const [orders, setOrders] = useState<TransferFanOrder[]>([])
   const [allUsers, setAllUsers] = useState<UserWithDepartments[]>([])
+  const [urgentLogs, setUrgentLogs] = useState<UrgentLog[]>([])
   const [loading, setLoading] = useState(true)
 
   // 时间段筛选
@@ -62,12 +64,14 @@ export default function TransferFanStats() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [data, users] = await Promise.all([
+        const [data, users, urgent] = await Promise.all([
           transferFanStatsService.getAllOrders(),
           userService.getAllUsers(),
+          transferFanStatsService.getUrgentLogs(),
         ])
         setOrders(data)
         setAllUsers(users)
+        setUrgentLogs(urgent)
 
         // 默认显示最近3个月数据
         const now = new Date()
@@ -441,6 +445,92 @@ export default function TransferFanStats() {
     }
   }, [filteredOrders, isDark, bgColor, borderColor, textColor])
 
+  // ─── 加急按钮点击排行 ───────────────────────
+  const urgentRankOption = useMemo(() => {
+    // 按时间段过滤加急日志
+    const filteredUrgent = urgentLogs.filter(l => {
+      const d = new Date(l.created_at)
+      if (dateFrom && d < new Date(dateFrom)) return false
+      if (dateTo && d > new Date(dateTo + 'T23:59:59.999Z')) return false
+      return true
+    })
+
+    const userClickMap = new Map<string, { name: string; count: number }>()
+    filteredUrgent.forEach(log => {
+      const userId = log.user_id
+      const userName = log.user?.display_name || log.user?.phone || userId
+      const existing = userClickMap.get(userId) || { name: userName, count: 0 }
+      existing.count++
+      if (userName !== existing.name) existing.name = userName
+      userClickMap.set(userId, existing)
+    })
+
+    const topUsers = Array.from(userClickMap.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    const hasData = topUsers.length > 0
+
+    if (!hasData) {
+      return {
+        backgroundColor: bgColor,
+        grid: { left: '3%', right: '10%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: { type: 'value' as const, axisLabel: { color: textColor, fontSize: 11 }, splitLine: { lineStyle: { color: borderColor, type: 'dashed' as const } } },
+        yAxis: { type: 'category' as const, data: [], axisLabel: { color: textColor, fontSize: 11 }, axisLine: { lineStyle: { color: borderColor } } },
+        series: [{
+          name: '加急点击次数', type: 'bar', barWidth: '60%',
+          data: [],
+          itemStyle: { borderRadius: [0, 4, 4, 0], color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#ea580c' },
+            { offset: 1, color: '#f97316' },
+          ]) },
+        }],
+        title: {
+          text: '暂无数据', left: 'center', top: 'center',
+          textStyle: { color: textColor, fontSize: 14, fontWeight: 'normal' as const },
+        },
+      }
+    }
+
+    return {
+      backgroundColor: bgColor,
+      tooltip: {
+        trigger: 'axis' as const,
+        backgroundColor: isDark ? '#27272a' : '#fff',
+        borderColor,
+        textStyle: { color: textColor },
+      },
+      grid: { left: '3%', right: '10%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: {
+        type: 'value' as const,
+        axisLabel: { color: textColor, fontSize: 11 },
+        splitLine: { lineStyle: { color: borderColor, type: 'dashed' as const } },
+      },
+      yAxis: {
+        type: 'category' as const,
+        data: topUsers.map(u => u.name.length > 12 ? u.name.slice(0, 12) + '...' : u.name).reverse(),
+        axisLabel: { color: textColor, fontSize: 11 },
+        axisLine: { lineStyle: { color: borderColor } },
+      },
+      series: [{
+        name: '加急点击次数', type: 'bar', barWidth: '60%',
+        data: topUsers.map(u => u.count).reverse(),
+        itemStyle: {
+          borderRadius: [0, 4, 4, 0],
+          color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+            { offset: 0, color: '#ea580c' },
+            { offset: 1, color: '#f97316' },
+          ]),
+        },
+        label: {
+          show: true, position: 'right',
+          color: textColor, fontSize: 11,
+          formatter: (params: any) => `${params.value} 次`,
+        },
+      }],
+    }
+  }, [urgentLogs, dateFrom, dateTo, isDark, bgColor, borderColor, textColor])
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -582,6 +672,21 @@ export default function TransferFanStats() {
         <ReactECharts
           echarts={echarts}
           option={deptTrendOption}
+          style={{ height: 350 }}
+          notMerge={true}
+          lazyUpdate={true}
+        />
+      </div>
+
+      {/* 加急按钮点击排行 */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <BoltIcon className="h-5 w-5 text-orange-500" />
+          加急按钮点击排行 (Top 10)
+        </h3>
+        <ReactECharts
+          echarts={echarts}
+          option={urgentRankOption}
           style={{ height: 350 }}
           notMerge={true}
           lazyUpdate={true}

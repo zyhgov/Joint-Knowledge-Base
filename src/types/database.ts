@@ -245,6 +245,20 @@ export const TRANSFER_FAN_STATUS_LABELS: Record<string, string> = {
   rejected: '驳回',
 }
 
+// 加急按钮点击日志
+export interface UrgentLog {
+  id: string
+  user_id: string
+  created_at: string
+  // 关联用户信息
+  user?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+    avatar_url: string | null
+  }
+}
+
 export const TRANSFER_FAN_STATUS_COLORS: Record<string, string> = {
   submitted: 'text-blue-600 bg-blue-50',
   pending: 'text-amber-600 bg-amber-50',

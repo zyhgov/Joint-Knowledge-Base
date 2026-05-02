@@ -216,6 +216,15 @@ export const transferFanService = {
     if (error) throw error
   },
 
+  // 记录加急按钮点击
+  logUrgentClick: async (userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('transfer_fan_urgent_logs')
+      .insert({ user_id: userId })
+
+    if (error) throw error
+  },
+
   // 删除工单
   delete: async (ids: string[]): Promise<void> => {
     const { error } = await supabase
