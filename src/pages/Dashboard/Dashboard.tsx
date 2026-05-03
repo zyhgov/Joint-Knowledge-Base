@@ -17,6 +17,7 @@ import {
   CheckCircleIcon,
   XCircleIcon,
   ExclamationCircleIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import { cn } from '@/lib/utils'
 import { getFileIconConfig, isImageFile } from '@/components/files/FileIcon'
@@ -34,6 +35,7 @@ import {
 } from '@/utils/permission'
 import { transferFanService } from '@/services/transferFanService'
 import { UserWithDepartments } from '@/types/database'
+import { getTodayInfo, getRandomCardBg, getNextCardBg, type TodayInfo } from '@/utils/lunar'
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B'
@@ -58,6 +60,8 @@ export default function Dashboard() {
     cancelled: 0,
     rejected: 0,
   })
+  const [todayInfo, setTodayInfo] = useState<TodayInfo | null>(null)
+  const [cardBg, setCardBg] = useState('')
 
   useEffect(() => {
     const loadData = async () => {
@@ -102,6 +106,8 @@ export default function Dashboard() {
       }
     }
     loadData()
+    setTodayInfo(getTodayInfo())
+    setCardBg(getRandomCardBg())
   }, [user?.id])
 
   // 权限判断
@@ -206,6 +212,10 @@ export default function Dashboard() {
     return '晚上好'
   }
 
+  const handleSwitchBg = () => {
+    setCardBg((prev) => getNextCardBg(prev))
+  }
+
   if (loading) {
     return (
       <div className="space-y-8">
@@ -234,18 +244,92 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* 欢迎区 */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 border border-primary/10 p-8">
-        <div className="relative z-10">
-          <h1 className="text-2xl font-bold text-foreground">
-            {getGreeting()}，{user?.display_name || '用户'}
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            今天也是高效工作的一天。让我们一起看看最新的动态。
-          </p>
-        </div>
-        <div className="absolute right-8 top-1/2 -translate-y-1/2 text-8xl opacity-10">
-          📋
+      {/* 欢迎区 - 背景图+黄历信息 */}
+      <div className="relative overflow-hidden rounded-2xl border border-border/50">
+        {/* 背景图片 - 用 object-cover 等比铺满 */}
+        {cardBg && (
+          <img
+            src={cardBg}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+        )}
+        {/* 灰黑色蒙版 - 保证任何背景图上文字都清晰 */}
+        <div className="absolute inset-0 bg-black/60" />
+
+        {/* 切换背景按钮 - 右上角 */}
+        <button
+          onClick={handleSwitchBg}
+          className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/15 hover:bg-white/25 backdrop-blur-sm text-white/80 hover:text-white transition-all"
+          title="切换背景"
+        >
+          <ArrowPathIcon className="h-4 w-4" />
+        </button>
+
+        {/* 内容 */}
+        <div className="relative z-10 p-6 sm:p-8 flex flex-col gap-4 min-h-[220px] sm:min-h-[240px]">
+          {/* 顶部问候 */}
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white drop-shadow-sm">
+              {getGreeting()}，{user?.display_name || '用户'}
+            </h1>
+            {todayInfo && (
+              <p className="text-white/75 mt-2 text-sm sm:text-base leading-relaxed drop-shadow-sm">
+                今天是{todayInfo.gregorian}，<br />今天也是高效工作的一天。让我们一起看看最新的动态。
+              </p>
+            )}
+          </div>
+
+          {/* 底部黄历信息 */}
+          {todayInfo && (
+            <div className="mt-auto space-y-2.5">
+              {/* 农历 + 节气 */}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="text-white/90 text-base sm:text-lg font-medium drop-shadow-sm">
+                  {todayInfo.lunar}（{todayInfo.shengxiao}年）
+                </span>
+                {todayInfo.jieqi && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-400/30 backdrop-blur-sm">
+                    🎋 {todayInfo.jieqi}
+                  </span>
+                )}
+              </div>
+
+              {/* 宜 / 忌 - 响应式换行 */}
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+                {todayInfo.yi.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/60 text-xs font-medium drop-shadow-sm">宜</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {todayInfo.yi.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-300 border border-green-400/30 backdrop-blur-sm"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {todayInfo.ji.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-white/60 text-xs font-medium drop-shadow-sm">忌</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {todayInfo.ji.map((item) => (
+                        <span
+                          key={item}
+                          className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-300 border border-red-400/30 backdrop-blur-sm"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -44,8 +44,6 @@ interface DocRow {
   visible_department_ids?: string[] | null
   visible_workspace_ids?: string[] | null
   password?: string | null
-  workspaces?: { name: string }[] | null
-  jkb_users?: { display_name: string; avatar_url: string | null }[] | null
   // 降级查询补充
   creator_name?: string
   creator_avatar?: string | null
@@ -129,7 +127,7 @@ export default function DocumentsPage() {
 
       const res1 = await supabase
         .from('jkb_documents')
-        .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password, workspaces(name)')
+        .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password')
         .is('deleted_at', null)
         .order('updated_at', { ascending: false })
 
@@ -137,7 +135,7 @@ export default function DocumentsPage() {
         console.warn('带 deleted_at 查询失败，尝试降级查询:', res1.error.message)
         const res2 = await supabase
           .from('jkb_documents')
-          .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password, workspaces(name)')
+          .select('id, title, workspace_id, created_by, created_at, updated_at, tags, access_level, visible_department_ids, visible_workspace_ids, password')
           .order('updated_at', { ascending: false })
         data = res2.data
         error = res2.error
@@ -148,37 +146,30 @@ export default function DocumentsPage() {
       if (error) throw error
       let filtered = data || []
 
-      // 单独查询所有创建者信息
-      const creatorIds = [...new Set(filtered.map(d => d.created_by).filter(Boolean))]
-      const creatorMap = new Map<string, { display_name: string | null; avatar_url: string | null }>()
+      // 单独查询创建者信息
+      if (filtered.length > 0) {
+        const creatorIds = [...new Set(filtered.map(d => d.created_by).filter(Boolean))]
+        const creatorMap = new Map<string, { display_name: string | null; avatar_url: string | null }>()
+        // 兜底：当前用户
+        if (user) creatorMap.set(user.id, { display_name: user.display_name, avatar_url: user.avatar_url })
 
-      // 先用当前登录用户的信息作为兜底
-      if (user) {
-        creatorMap.set(user.id, { display_name: user.display_name, avatar_url: user.avatar_url })
+        try {
+          const { data: usersData } = await supabase
+            .from('jkb_users')
+            .select('id, display_name, avatar_url')
+            .in('id', creatorIds)
+          if (usersData) {
+            usersData.forEach(u => creatorMap.set(u.id, { display_name: u.display_name, avatar_url: u.avatar_url }))
+          }
+        } catch (e) {
+          console.warn('[DocList] 查询创建者失败，使用当前用户信息兜底:', e)
+        }
+
+        filtered = filtered.map(d => {
+          const u = creatorMap.get(d.created_by)
+          return { ...d, creator_name: u?.display_name || undefined, creator_avatar: u?.avatar_url || null }
+        })
       }
-
-      if (creatorIds.length > 0) {
-        const { data: usersData, error: usersError } = await supabase
-          .from('jkb_users')
-          .select('id, display_name, avatar_url')
-          .in('id', creatorIds)
-
-        if (usersError) {
-          console.warn('[DocList] 查询创建者信息失败:', usersError.message)
-        }
-        if (usersData) {
-          usersData.forEach(u => creatorMap.set(u.id, { display_name: u.display_name, avatar_url: u.avatar_url }))
-        }
-      }
-
-      // 将创建者信息合并到文档数据
-      filtered = filtered.map(d => {
-        if (d.created_by && creatorMap.has(d.created_by)) {
-          const u = creatorMap.get(d.created_by)!
-          return { ...d, creator_name: u.display_name || undefined, creator_avatar: u.avatar_url }
-        }
-        return d
-      })
 
       // 按访问权限过滤文档
       if (user) {
@@ -613,18 +604,21 @@ export default function DocumentsPage() {
                 </div>
 
                 {/* 所属工作区 */}
-                {doc.workspaces?.[0]?.name && (
-                  <div className="mb-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
-                      <Briefcase className="h-3.5 w-3.5" />
-                      所属工作区
+                {(() => {
+                  const wsName = workspaces.find(w => w.id === doc.workspace_id)?.name
+                  return wsName ? (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1.5">
+                        <Briefcase className="h-3.5 w-3.5" />
+                        所属工作区
+                      </div>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-muted text-muted-foreground">
+                        <Briefcase className="h-2.5 w-2.5" />
+                        {wsName}
+                      </span>
                     </div>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-muted text-muted-foreground">
-                      <Briefcase className="h-2.5 w-2.5" />
-                      {doc.workspaces[0].name}
-                    </span>
-                  </div>
-                )}
+                  ) : null
+                })()}
 
                 {/* 可见工作区（access_level=workspace 时显示） */}
                 {accessLevel === 'workspace' && visibleWorkspaces.length > 0 && (

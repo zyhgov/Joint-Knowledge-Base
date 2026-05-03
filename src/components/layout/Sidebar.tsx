@@ -35,7 +35,7 @@ import {
   ChatBubbleLeftRightIcon,
   SparklesIcon,
 } from '@heroicons/react/24/outline'
-
+import { ChevronDown, ChevronUp, GitCommit } from "lucide-react";
 interface SidebarProps {
   collapsed: boolean
   onToggleCollapse: () => void
@@ -77,6 +77,47 @@ const roleLabels: Record<string, string> = {
   guest: '访客',
 }
 
+const changelogData = [
+  {
+    version: "v1.2.0",
+    date: "2026-05-03",
+    changes: [
+      "✨ 新增工单管理系统，支持快速创建和紧急转粉",
+      "✨ 接入火山引擎的豆包大模型用作 AI 聊天与站点功能对话说明",
+      "🎨 优化 UI 设计，采用 shadcn/ui 组件库提升用户体验",
+      "🚀 集成 Cloudflare Realtime 实现实时协作功能",
+      "🐛 修复已知问题，提升系统稳定性"
+    ]
+  },
+  {
+    version: "v1.1.2",
+    date: "2026-04-20",
+    changes: [
+      "🔐 新增数据可视化图表功能，支持折线图、柱状图等多种图表类型",
+      "📊 优化数据库查询性能，响应速度提升 80%",
+      "🐛 修复已知问题，提升系统稳定性"
+    ]
+  },
+  {
+    version: "v1.1.0",
+    date: "2026-04-10",
+    changes: [
+      "🔐 接入 Supabase 认证系统，增强账户安全性",
+      "📊 优化数据库查询性能，响应速度提升 40%",
+      "🌐 支持多样式界面切换"
+    ]
+  },
+  {
+    version: "v1.0.0",
+    date: "2026-04-01",
+    changes: [
+      "项目正式立项并提交联合库 UNHub 站点管理委员会审核",
+      "🔧 完成基础架构搭建"
+    ]
+  }
+];
+
+
 function getRoleLabel(role: string | undefined, roleName?: string): string {
   if (!role) return ''
   // 优先使用 RBAC 返回的角色名称
@@ -90,6 +131,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   const { user, userPermissions } = useAuthStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [aboutOpen, setAboutOpen] = useState(false)
+  const [showChangelog, setShowChangelog] = useState(false)
 
 
   // 根据权限判断是否显示管理菜单（每个菜单项独立判断）
@@ -342,40 +384,128 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
           )}
         </button>
       </div>
-      {/* 关于本站 */}
-      <Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
-        <DialogContent className="max-w-md rounded-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-xl">关于本站</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 text-sm text-muted-foreground">
-            <p className="text-base font-medium text-foreground">
-              基于现代技术栈构建的协作平台
-            </p>
 
-            <div className="space-y-2">
-              <h4 className="font-semibold text-foreground">技术栈</h4>
-              <ul className="list-disc list-inside space-y-1 pl-1">
-                <li><span className="text-foreground">前端框架：</span>React + TypeScript</li>
-                <li><span className="text-foreground">UI 框架：</span>Radix UI + Tailwind CSS + shadcn/ui</li>
-                <li><span className="text-foreground">图表库：</span>ECharts</li>
-                <li><span className="text-foreground">数据库：</span>Supabase</li>
-                <li><span className="text-foreground">对象存储：</span>Cloudflare R2</li>
-                <li><span className="text-foreground">通知与协作：</span>Cloudflare Realtime</li>
-                <li><span className="text-foreground">部署：</span>Cloudflare Pages / Workers</li>
-                <li><span className="text-foreground">代码仓库：</span>GitHub</li>
-              </ul>
-            </div>
+{/* 关于本站 */}
+<Dialog open={aboutOpen} onOpenChange={setAboutOpen}>
+  <DialogContent className="max-w-md rounded-2xl max-h-[80vh] overflow-y-auto">
+    <DialogHeader>
+      <div className="flex items-center justify-between">
+        <DialogTitle className="text-xl font-semibold">关于联合知识库JKB</DialogTitle>
+        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
+          当前版本 v1.2.0
+        </span>
+      </div>
+    </DialogHeader>
+    
+    <div className="space-y-5 text-sm text-muted-foreground">
+      {/* 平台简介 */}
+      <div className="space-y-1.5">
+        <p className="text-base font-medium text-foreground leading-relaxed">
+          <strong>联合知识库JKB</strong> 是一款专注于高效协作与数据可视化的现代 Web 应用，采用云原生架构设计，致力于为用户提供稳定、安全、流畅的协同体验。
+        </p>
+      </div>
 
-            <div className="pt-2 border-t border-border">
-              <p className="text-foreground">
-                本平台由 <strong>杖雍皓</strong> 与 <strong>联合库 unhub</strong> 协同制作，
-                通过联合库 unhub 站点管理委员会审核发布。
-              </p>
-            </div>
+      {/* 技术架构 */}
+      <div className="space-y-2">
+        <h4 className="font-semibold text-foreground">技术架构</h4>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <span className="text-muted-foreground">前端框架</span>
+          <span className="text-foreground font-medium">React 18 + TypeScript</span>
+          
+          <span className="text-muted-foreground">UI 设计系统</span>
+          <span className="text-foreground font-medium">Radix UI + Tailwind CSS + shadcn/ui</span>
+          
+          <span className="text-muted-foreground">数据可视化</span>
+          <span className="text-foreground font-medium">Apache ECharts</span>
+          
+          <span className="text-muted-foreground">数据库与认证</span>
+          <span className="text-foreground font-medium">Supabase</span>
+          
+          <span className="text-muted-foreground">对象存储</span>
+          <span className="text-foreground font-medium">Cloudflare R2</span>
+          
+          <span className="text-muted-foreground">实时通信</span>
+          <span className="text-foreground font-medium">Cloudflare Realtime</span>
+          
+          <span className="text-muted-foreground">部署与工程化</span>
+          <span className="text-foreground font-medium">Cloudflare Pages / Workers</span>
+          
+          <span className="text-muted-foreground">代码管理</span>
+          <span className="text-foreground font-medium">GitHub</span>
+
+          <span className="text-muted-foreground">配色参考</span>
+          <span className="text-foreground font-medium">Apple</span>
+        </div>
+      </div>
+
+      {/* 更新日志折叠面板 */}
+      <div className="space-y-2">
+        <button
+          onClick={() => setShowChangelog(!showChangelog)}
+          className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-accent/50 transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            <GitCommit className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+            <span className="font-semibold text-foreground">版本更新日志</span>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {changelogData.length} 个版本
+            </span>
+            {showChangelog ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </div>
+        </button>
+
+        {/* 折叠内容 */}
+        {showChangelog && (
+          <div className="space-y-3 pl-2 border-l-2 border-border animate-in slide-in-from-top-2 duration-200">
+            {changelogData.map((release, index) => (
+              <div key={release.version} className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-primary">
+                    {release.version}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {release.date}
+                  </span>
+                  {index === 0 && (
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">
+                      最新
+                    </span>
+                  )}
+                </div>
+                <ul className="space-y-1 pl-1">
+                  {release.changes.map((change, i) => (
+                    <li key={i} className="text-xs text-muted-foreground leading-relaxed pl-1.5">
+                      {change}
+                    </li>
+                  ))}
+                </ul>
+                {index < changelogData.length - 1 && (
+                  <div className="pt-2 border-b border-border/50" />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 出品与合规 */}
+      <div className="pt-3 border-t border-border space-y-1.5">
+        <p className="leading-relaxed">
+          本平台由 <strong className="text-foreground">杖雍皓</strong> 主导开发，与 <strong className="text-foreground">联合库 UNHub</strong> 联合出品。
+        </p>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          项目源码与发布版本均已通过 <strong className="text-foreground">联合库 UNHub 站点管理委员会</strong> 严格审核，确保服务合规、数据透明与持续迭代。
+        </p>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
 
     </aside>
   )

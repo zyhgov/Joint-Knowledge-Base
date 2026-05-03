@@ -60,6 +60,7 @@
     "html2pdf.js": "^0.14.0",
     "lowlight": "^3.3.0",
     "lucide-react": "^1.8.0",
+    "lunar-javascript": "^1.7.7",
     "pdfmake": "^0.3.7",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
