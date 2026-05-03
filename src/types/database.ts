@@ -318,6 +318,17 @@ export interface AIKnowledgeBase {
   }
 }
 
+// AI 预设问题
+// 数据库表：ai_preset_questions
+export interface AIPresetQuestion {
+  id: string
+  question: string
+  is_hidden: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 export const TRANSFER_FAN_STATUS_COLORS: Record<string, string> = {
   submitted: 'text-blue-600 bg-blue-50',
   pending: 'text-amber-600 bg-amber-50',

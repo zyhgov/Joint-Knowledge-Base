@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { aiChatDbService } from '@/services/aiChatDbService'
-import { AIUserBan } from '@/types/database'
+import { AIUserBan, AIPresetQuestion } from '@/types/database'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'react-hot-toast'
 import {
   MagnifyingGlassIcon, XMarkIcon, ChatBubbleLeftRightIcon,
   NoSymbolIcon, CheckCircleIcon, ExclamationTriangleIcon,
-  TrashIcon, BookOpenIcon,
+  TrashIcon, BookOpenIcon, LightBulbIcon,
+  PlusIcon, PencilSquareIcon, EyeIcon, EyeSlashIcon,
 } from '@heroicons/react/24/outline'
 
 function fmtDate(dateStr: string) {
@@ -23,7 +24,7 @@ function fmtFullDate(dateStr: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-type TabType = 'conversations' | 'bans' | 'knowledge'
+type TabType = 'conversations' | 'bans' | 'knowledge' | 'presets'
 
 export default function AIChatAdmin() {
   const { user: currentUser } = useAuthStore()
@@ -49,6 +50,12 @@ export default function AIChatAdmin() {
   const [knowledgeContent, setKnowledgeContent] = useState('')
   const [knowledgeLoading, setKnowledgeLoading] = useState(false)
   const [knowledgeSaving, setKnowledgeSaving] = useState(false)
+
+  // 预设问题
+  const [presetQuestions, setPresetQuestions] = useState<AIPresetQuestion[]>([])
+  const [newQuestionText, setNewQuestionText] = useState('')
+  const [editingQuestionId, setEditingQuestionId] = useState<string | null>(null)
+  const [editingQuestionText, setEditingQuestionText] = useState('')
 
   // 加载对话列表
   const loadConversations = useCallback(async () => {
@@ -78,13 +85,6 @@ export default function AIChatAdmin() {
       toast.error('加载封禁列表失败: ' + err.message)
     }
   }, [])
-
-  useEffect(() => {
-    if (tab === 'conversations') loadConversations()
-    else if (tab === 'bans') loadBans()
-    else if (tab === 'knowledge') loadKnowledge()
-  }, [tab, loadConversations, loadBans])
-
   // 封禁用户
   const handleBan = async () => {
     if (!banUserId.trim() || !currentUser) return
@@ -124,6 +124,23 @@ export default function AIChatAdmin() {
     }
   }, [])
 
+  // 加载预设问题
+  const loadPresetQuestions = useCallback(async () => {
+    try {
+      const data = await aiChatDbService.getAllPresetQuestions()
+      setPresetQuestions(data)
+    } catch (err: any) {
+      toast.error('加载预设问题失败: ' + err.message)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'conversations') loadConversations()
+    else if (tab === 'bans') loadBans()
+    else if (tab === 'knowledge') loadKnowledge()
+    else if (tab === 'presets') loadPresetQuestions()
+  }, [tab, loadConversations, loadBans, loadKnowledge, loadPresetQuestions])
+
   // 保存知识预设
   const handleSaveKnowledge = async () => {
     if (!currentUser) return
@@ -147,6 +164,53 @@ export default function AIChatAdmin() {
     setExpandedConvId(convId)
     const msgs = await aiChatDbService.getMessages(convId)
     setConvMessages(msgs)
+  }
+
+  // ─── 预设问题 CRUD ───────────────────
+  const handleAddQuestion = async () => {
+    const text = newQuestionText.trim()
+    if (!text) return
+    try {
+      await aiChatDbService.createPresetQuestion(text)
+      setNewQuestionText('')
+      toast.success('预设问题已添加')
+      loadPresetQuestions()
+    } catch (err: any) {
+      toast.error('添加失败: ' + err.message)
+    }
+  }
+
+  const handleEditQuestion = async (id: string) => {
+    const text = editingQuestionText.trim()
+    if (!text) { setEditingQuestionId(null); return }
+    try {
+      await aiChatDbService.updatePresetQuestion(id, text)
+      setEditingQuestionId(null)
+      toast.success('预设问题已更新')
+      loadPresetQuestions()
+    } catch (err: any) {
+      toast.error('更新失败: ' + err.message)
+    }
+  }
+
+  const handleDeleteQuestion = async (id: string) => {
+    if (!confirm('确定要删除这条预设问题吗？')) return
+    try {
+      await aiChatDbService.deletePresetQuestion(id)
+      toast.success('预设问题已删除')
+      loadPresetQuestions()
+    } catch (err: any) {
+      toast.error('删除失败: ' + err.message)
+    }
+  }
+
+  const handleToggleVisibility = async (id: string, currentHidden: boolean) => {
+    try {
+      await aiChatDbService.togglePresetQuestionVisibility(id, !currentHidden)
+      loadPresetQuestions()
+    } catch (err: any) {
+      toast.error('操作失败: ' + err.message)
+    }
   }
 
   const totalPages = Math.ceil(total / pageSize)
@@ -181,6 +245,15 @@ export default function AIChatAdmin() {
         >
           <BookOpenIcon className="h-4 w-4 inline mr-1.5" />
           知识预设
+        </button>
+        <button
+          onClick={() => setTab('presets')}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
+            tab === 'presets' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <LightBulbIcon className="h-4 w-4 inline mr-1.5" />
+          预设问题
         </button>
       </div>
 
@@ -446,6 +519,106 @@ export default function AIChatAdmin() {
             </div>
           </div>
         </>
+      )}
+
+      {tab === 'presets' && (
+        <div className="flex-1 flex flex-col gap-4">
+          {/* 添加新问题 */}
+          <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+              <PlusIcon className="h-4 w-4 text-[#007aff]" />
+              添加预设问题
+            </h3>
+            <div className="flex items-center gap-2">
+              <input
+                value={newQuestionText}
+                onChange={(e) => setNewQuestionText(e.target.value)}
+                placeholder="输入预设问题..."
+                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#007aff]/20 focus:border-[#007aff]"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddQuestion() }}
+              />
+              <button
+                onClick={handleAddQuestion}
+                disabled={!newQuestionText.trim()}
+                className="px-4 py-2 text-sm text-white bg-[#007aff] rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <PlusIcon className="h-4 w-4 inline mr-1" />
+                添加
+              </button>
+            </div>
+          </div>
+
+          {/* 问题列表 */}
+          <div className="flex-1 overflow-y-auto">
+            {presetQuestions.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-12">
+                <LightBulbIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                暂无预设问题，在上方添加第一条吧
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {presetQuestions.map((q) => (
+                  <div key={q.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm">
+                    <div className="flex-1 min-w-0">
+                      {editingQuestionId === q.id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            value={editingQuestionText}
+                            onChange={(e) => setEditingQuestionText(e.target.value)}
+                            className="flex-1 px-3 py-1.5 text-sm border border-[#007aff] rounded-lg bg-white focus:outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleEditQuestion(q.id)
+                              if (e.key === 'Escape') setEditingQuestionId(null)
+                            }}
+                            autoFocus
+                          />
+                          <button onClick={() => handleEditQuestion(q.id)} className="px-2.5 py-1.5 text-xs font-medium text-white bg-[#007aff] rounded-lg hover:bg-blue-600 transition-colors">保存</button>
+                          <button onClick={() => setEditingQuestionId(null)} className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5">
+                          <span className={`text-sm ${q.is_hidden ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                            {q.question}
+                          </span>
+                          {q.is_hidden && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-muted-foreground">已隐藏</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 ml-3 flex-shrink-0">
+                      {editingQuestionId !== q.id && (
+                        <>
+                          <button
+                            onClick={() => { setEditingQuestionId(q.id); setEditingQuestionText(q.question) }}
+                            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                            title="编辑"
+                          >
+                            <PencilSquareIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleVisibility(q.id, q.is_hidden)}
+                            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                            title={q.is_hidden ? '显示' : '隐藏'}
+                          >
+                            {q.is_hidden ? <EyeIcon className="h-4 w-4" /> : <EyeSlashIcon className="h-4 w-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteQuestion(q.id)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-500 transition-colors"
+                            title="删除"
+                          >
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

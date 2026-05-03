@@ -3,7 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { aiChatService, ChatMessage } from '@/services/aiChatService'
 import { aiChatDbService } from '@/services/aiChatDbService'
-import { AIChatConversation } from '@/types/database'
+import { AIChatConversation, AIPresetQuestion } from '@/types/database'
 import { useAuthStore } from '@/store/authStore'
 import { PaperAirplaneIcon, StopIcon } from '@heroicons/react/24/solid'
 import {
@@ -29,7 +29,7 @@ function ChatBubble({ message }: { message: ChatMessage }) {
   }
   return (
     <div className="flex mb-3">
-      <img src={DOUBAO_AVATAR} alt="豆包" className="flex-shrink-0 w-8 h-8 rounded-full mr-3 mt-0.5 object-cover shadow-sm ring-2 ring-blue-100" />
+      <img src={DOUBAO_AVATAR} alt="豆包" className="flex-shrink-0 w-8 h-8 rounded-full mr-3 mt-0.5 object-cover shadow-sm" />
       <div className="max-w-[72%] bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed prose prose-sm max-w-none prose-pre:bg-[#f6f8fa] prose-pre:border prose-pre:border-gray-200 prose-code:text-pink-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:rounded-xl prose-pre:p-4 shadow-sm">
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
           code({ className, children, ...props }) {
@@ -68,6 +68,7 @@ export default function AIChat() {
   const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
   const [editTitleValue, setEditTitleValue] = useState('')
   const [knowledgeBase, setKnowledgeBase] = useState('')
+  const [presetQuestions, setPresetQuestions] = useState<AIPresetQuestion[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -85,6 +86,9 @@ export default function AIChat() {
       // 加载知识预设
       const kb = await aiChatDbService.getKnowledgeBase()
       setKnowledgeBase(kb)
+      // 加载预设问题
+      const presets = await aiChatDbService.getPresetQuestions()
+      setPresetQuestions(presets)
     }
     init()
   }, [currentUser])
@@ -267,24 +271,67 @@ ${knowledgeBase}` } : null
           ) : !activeConvId ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center max-w-sm">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl shadow-lg shadow-blue-200 overflow-hidden"><img src={DOUBAO_AVATAR} alt="豆包" className="w-full h-full object-cover" /></div>
-                <h2 className="text-lg font-semibold text-foreground mb-1">和豆包聊聊</h2>
-                <p className="text-sm text-muted-foreground mb-6">点击「新对话」开始聊天</p>
+                <div className="w-24 h-24 mx-auto mb-5 rounded-full overflow-hidden"><img src={DOUBAO_AVATAR} alt="豆包" className="w-full h-full object-cover" /></div>
+                <h2 className="text-2xl lg:text-3xl font-semibold text-foreground mb-2">你好，{currentUser?.display_name || '用户'}。<br />今天来和豆包聊聊吧！</h2>
+                <p className="text-base text-muted-foreground mb-6">点击 「新对话」 开始聊天</p>
                 <button onClick={handleNewConversation} className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium text-white bg-[#007aff] hover:bg-blue-600 rounded-xl transition-colors shadow-sm"><PlusIcon className="h-4 w-4" />开始新对话</button>
               </div>
             </div>
           ) : !hasMessages ? (
             <div className="h-full flex items-center justify-center">
-              <div className="text-center max-w-md lg:scale-110 origin-center">
+              <div className="text-center max-w-[700px] lg:scale-110 origin-center">
                 <div className="w-24 h-24 mx-auto mb-5 rounded-full overflow-hidden"><img src={DOUBAO_AVATAR} alt="豆包" className="w-full h-full object-cover" /></div>
-                <h2 className="text-xl lg:text-2xl font-semibold text-foreground mb-2">有什么想问的？</h2>
-                <p className="text-sm text-muted-foreground mb-8">我会尽力帮你解答</p>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {['帮我写一封工作邮件', '用Python写一个快速排序', '解释什么是RESTful API', '帮我润色这段文字'].map((t) => (
-                    <button key={t} onClick={() => handleSend(t)}
-                      className="px-3 py-2.5 text-xs text-muted-foreground bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all text-left leading-relaxed">{t}</button>
-                  ))}
-                </div>
+                <h2 className="text-2xl lg:text-3xl font-semibold text-foreground mb-2">你好，{currentUser?.display_name || '用户'}，有什么想问的？</h2>
+                <p className="text-base text-muted-foreground mb-6">我会尽力帮你解答</p>
+
+                {/* 横向循环滚动预设问题 */}
+                {(() => {
+                  const qs: any[] = presetQuestions.length > 0 ? presetQuestions : [
+                    { id: '1', question: '如何转粉？' },
+                    { id: '2', question: '用Python写一个九九乘法表' },
+                    { id: '3', question: '解释什么是AI' },
+                    { id: '4', question: '帮我写一段小说' },
+                  ]
+                  // 打乱后轮询分配到3行，每行补到至少4个不同问题
+                  const shuffled = [...qs].sort(() => Math.random() - 0.5)
+                  const rows: any[] = [[], [], []]
+                  shuffled.forEach((q: any, i: number) => rows[i % 3].push(q))
+                  // 每行补满至少4个不同问题，使12遍复制后不会单调重复
+                  rows.forEach((row: any[]) => {
+                    const used = new Set(row.map((r: any) => r.id))
+                    const candidates = shuffled.filter((q: any) => !used.has(q.id))
+                    while (row.length < 4 && candidates.length > 0) {
+                      const pick = candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0]
+                      if (pick) row.push(pick)
+                    }
+                  })
+                  // 每行滚动方向：左、右、左
+                  const dirs = ['left', 'right', 'left'] as const
+                  // 复制 12 遍，保证轨道足够长，始终列满
+                  const N = 12
+                  return (
+                    <>
+                      <style>{`\n                        @keyframes scroll-l {\n                          0% { transform: translateX(0); }\n                          100% { transform: translateX(-${100 / N}%); }\n                        }\n                        @keyframes scroll-r {\n                          0% { transform: translateX(-${100 / N}%); }\n                          100% { transform: translateX(0); }\n                        }\n                        .a-scroll-l { animation: scroll-l 20s linear infinite; }\n                        .a-scroll-r { animation: scroll-r 20s linear infinite; }\n                        .a-scroll-l:hover, .a-scroll-r:hover { animation-play-state: paused; }\n                        @media (prefers-reduced-motion: reduce) {\n                          .a-scroll-l, .a-scroll-r { animation: none; }\n                        }\n                      `}</style>
+                      <div className="flex flex-col gap-3 mt-2">
+                        {rows.map((rowItems, ri) => (
+                          <div key={ri} className="relative" style={{
+                            maskImage: 'linear-gradient(to right, transparent 0%, black 48px, black calc(100% - 48px), transparent 100%)',
+                            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 48px, black calc(100% - 48px), transparent 100%)',
+                          }}>
+                            <div className="overflow-hidden">
+                            <div className={`flex gap-2 ${dirs[ri] === 'left' ? 'a-scroll-l' : 'a-scroll-r'}`} style={{ width: 'max-content' }}>
+                              {Array.from({ length: N }, () => rowItems).flat().map((q: any, qi: number) => (
+                                <button key={`${ri}-${qi}`} onClick={() => handleSend(q.question)}
+                                  className="whitespace-nowrap flex-shrink-0 px-4 py-2 text-sm text-muted-foreground bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all leading-relaxed">{q.question}</button>
+                              ))}
+                            </div>
+                          </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             </div>
           ) : (
@@ -299,16 +346,16 @@ ${knowledgeBase}` } : null
         {!isBanned && activeConvId && (
           <div className="flex-shrink-0 bg-white/60 backdrop-blur-sm border-t border-border px-4 lg:px-6 py-3">
             <div className="max-w-3xl mx-auto">
-              <div className="flex items-end gap-2.5 bg-white border border-gray-200 rounded-2xl px-4 py-2.5 shadow-sm focus-within:border-blue-400 focus-within:shadow-md transition-all">
+              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 shadow-sm focus-within:border-blue-400 focus-within:shadow-md transition-all">
                 <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
                   placeholder="输入消息，Enter 发送" rows={1}
-                  className="flex-1 outline-none resize-none text-sm text-foreground bg-transparent placeholder:text-gray-400 max-h-28 leading-relaxed" disabled={loading}
+                  className="flex-1 outline-none resize-none text-sm text-foreground bg-transparent placeholder:text-gray-400 max-h-28 leading-6 py-3" disabled={loading}
                 />
                 {loading ? (
-                  <button onClick={handleStop} className="flex-shrink-0 w-9 h-9 rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors shadow-sm" title="停止生成"><StopIcon className="h-4 w-4" /></button>
+                  <button onClick={handleStop} className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors shadow-sm" title="停止生成"><StopIcon className="h-4 w-4" /></button>
                 ) : (
                   <button onClick={() => handleSend(input)} disabled={!input.trim()}
-                    className="flex-shrink-0 w-9 h-9 rounded-xl bg-[#007aff] hover:bg-blue-600 disabled:bg-gray-200 text-white flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm" title="发送"><PaperAirplaneIcon className="h-4 w-4" /></button>
+                    className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#007aff] hover:bg-blue-600 disabled:bg-gray-200 text-white flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm" title="发送"><PaperAirplaneIcon className="h-4 w-4" /></button>
                 )}
               </div>
               <p className="text-[11px] text-gray-400/70 text-center mt-1.5">AI 回复仅供参考，请核实重要信息</p>

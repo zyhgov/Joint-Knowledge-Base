@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import { AIChatConversation, AIChatMessage, AIUserBan, AIKnowledgeBase } from '@/types/database'
+import { AIChatConversation, AIChatMessage, AIUserBan, AIKnowledgeBase, AIPresetQuestion } from '@/types/database'
 
 export const aiChatDbService = {
   // ─── 封禁检查 ───────────────────────────
@@ -183,5 +183,59 @@ export const aiChatDbService = {
         .insert({ content, updated_by: updatedBy })
       if (error) throw error
     }
+  },
+
+  // ─── 预设问题 ───────────────────────────
+  getPresetQuestions: async (limit = 4): Promise<AIPresetQuestion[]> => {
+    const { data } = await supabase
+      .from('ai_preset_questions')
+      .select('*')
+      .eq('is_hidden', false)
+      .order('sort_order', { ascending: true })
+    if (!data) return []
+    const shuffled = [...data].sort(() => Math.random() - 0.5)
+    return shuffled.slice(0, limit)
+  },
+
+  getAllPresetQuestions: async (): Promise<AIPresetQuestion[]> => {
+    const { data } = await supabase
+      .from('ai_preset_questions')
+      .select('*')
+      .order('sort_order', { ascending: true })
+    return data || []
+  },
+
+  createPresetQuestion: async (question: string): Promise<AIPresetQuestion> => {
+    const { data, error } = await supabase
+      .from('ai_preset_questions')
+      .insert({ question })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  updatePresetQuestion: async (id: string, question: string): Promise<void> => {
+    const { error } = await supabase
+      .from('ai_preset_questions')
+      .update({ question, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  deletePresetQuestion: async (id: string): Promise<void> => {
+    const { error } = await supabase
+      .from('ai_preset_questions')
+      .delete()
+      .eq('id', id)
+    if (error) throw error
+  },
+
+  togglePresetQuestionVisibility: async (id: string, isHidden: boolean): Promise<void> => {
+    const { error } = await supabase
+      .from('ai_preset_questions')
+      .update({ is_hidden: isHidden, updated_at: new Date().toISOString() })
+      .eq('id', id)
+    if (error) throw error
   },
 }

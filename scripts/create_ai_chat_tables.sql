@@ -61,3 +61,18 @@ CREATE POLICY "所有人可管理封禁" ON ai_user_bans FOR ALL USING (true);
 ALTER TABLE ai_knowledge_base ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "所有人可查看知识预设" ON ai_knowledge_base FOR SELECT USING (true);
 CREATE POLICY "所有人可管理知识预设" ON ai_knowledge_base FOR ALL USING (true);
+
+
+-- 5. AI 预设问题表
+CREATE TABLE IF NOT EXISTS ai_preset_questions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  question TEXT NOT NULL,
+  is_hidden BOOLEAN DEFAULT false,
+  sort_order INT DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE ai_preset_questions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "所有人可查看预设问题" ON ai_preset_questions FOR SELECT USING (true);
+CREATE POLICY "所有人可管理预设问题" ON ai_preset_questions FOR ALL USING (true);
