@@ -571,18 +571,54 @@ export const chatService = {
 
   // 获取禁言列表
   getMutes: async (): Promise<ChatMuteWithDetails[]> => {
-    const { data, error } = await supabase
+    // 先查标量字段（避免联表查询因 null FK 或语法问题报错）
+    const { data: mutes, error } = await supabase
       .from('chat_mutes')
-      .select(`
-        id, user_id, conversation_id, muted_by, reason, expires_at, created_at,
-        user:jkb_users(id, display_name, phone),
-        muted_by_user:jkb_users!muted_by(id, display_name),
-        conversation:chat_conversations(id, name, type)
-      `)
+      .select('id, user_id, conversation_id, muted_by, reason, expires_at, created_at')
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    return data as any as ChatMuteWithDetails[]
+
+    if (!mutes || mutes.length === 0) return []
+
+    // 收集所有 user_id
+    const allUserIds = new Set<string>()
+    mutes.forEach(m => {
+      allUserIds.add(m.user_id)
+      allUserIds.add(m.muted_by)
+    })
+    const userIds = Array.from(allUserIds)
+
+    // 批量查用户
+    const { data: users } = await supabase
+      .from('jkb_users')
+      .select('id, display_name, phone')
+      .in('id', userIds)
+    const userMap = (users || []).reduce<Record<string, { id: string; display_name: string | null; phone: string | null }>>((acc, u) => {
+      acc[u.id] = u
+      return acc
+    }, {})
+
+    // 批量查会话（只查有 conversation_id 的）
+    const convIds = mutes
+      .filter(m => m.conversation_id)
+      .map(m => m.conversation_id!)
+    let convMap: Record<string, { id: string; name: string | null; type: string }> = {}
+    if (convIds.length > 0) {
+      const { data: convs } = await supabase
+        .from('chat_conversations')
+        .select('id, name, type')
+        .in('id', convIds)
+      ;(convs || []).forEach(c => { convMap[c.id] = c })
+    }
+
+    // 组装结果
+    return mutes.map(m => ({
+      ...m,
+      user: userMap[m.user_id] || { id: m.user_id, display_name: null, phone: null },
+      muted_by_user: userMap[m.muted_by] || { id: m.muted_by, display_name: null },
+      conversation: m.conversation_id ? (convMap[m.conversation_id] || null) : null,
+    })) as any as ChatMuteWithDetails[]
   },
 
   // 添加禁言

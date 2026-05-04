@@ -48,12 +48,18 @@ export default function ChatManagement() {
   const loadAllData = async () => {
     setLoading(true)
     try {
-      const allConvs = await chatService.getMyConversations(user?.id || '')
-      setConversations(allConvs)
-      const muteList = await chatService.getMutes()
-      setMutes(muteList)
-    } catch (err) {
-      console.error('加载聊天数据失败:', err)
+      try {
+        const allConvs = await chatService.getMyConversations(user?.id || '')
+        setConversations(allConvs)
+      } catch (convErr) {
+        console.error('加载会话列表失败:', convErr)
+      }
+      try {
+        const muteList = await chatService.getMutes()
+        setMutes(muteList)
+      } catch (muteErr) {
+        console.error('加载禁言列表失败:', muteErr)
+      }
     } finally {
       setLoading(false)
     }
@@ -147,9 +153,10 @@ export default function ChatManagement() {
       })
 
       setShowMuteDialog(false)
+      setMuteUserSearch('')
       setMuteUserId('')
       setMuteReason('')
-      loadAllData()
+      await loadAllData()
     } catch (err) {
       console.error('禁言失败:', err)
     }
@@ -159,7 +166,7 @@ export default function ChatManagement() {
   const handleUnmute = async (muteId: string) => {
     try {
       await chatService.removeMute(muteId)
-      loadAllData()
+      await loadAllData()
     } catch (err) {
       console.error('取消禁言失败:', err)
     }
