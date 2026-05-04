@@ -20,9 +20,10 @@ interface ChatWindowProps {
   conversationId: string
   userId: string
   onMessageSent: () => void
+  onBack?: () => void
 }
 
-export default function ChatWindow({ conversationId, userId, onMessageSent }: ChatWindowProps) {
+export default function ChatWindow({ conversationId, userId, onMessageSent, onBack }: ChatWindowProps) {
   const [messages, setMessages] = useState<ChatMessageWithSender[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(true)
@@ -423,6 +424,18 @@ export default function ChatWindow({ conversationId, userId, onMessageSent }: Ch
     <div className="flex flex-col h-full bg-[#f5f5f7] dark:bg-background">
       {/* 聊天头部 */}
       <div className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center px-4 flex-shrink-0">
+        {/* 移动端返回按钮 */}
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="lg:hidden p-1.5 mr-2 -ml-1 rounded-lg hover:bg-accent transition-colors text-muted-foreground"
+            title="返回会话列表"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+        )}
         <div className="flex items-center gap-3">
           {getConvAvatar()}
           <div>

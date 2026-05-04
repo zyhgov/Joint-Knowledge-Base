@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { hasAnyPermission } from '@/utils/permission'
@@ -11,6 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/store/authStore'
+import { useNotificationStore } from '@/store/notificationStore'
 import UserAvatar from '@/components/common/UserAvatar'
 import InstallPrompt from '@/components/common/InstallPrompt'
 import { BuildingOfficeIcon } from '@heroicons/react/24/outline'
@@ -162,6 +163,15 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
   const hasAnyAdminPerm = visibleAdminMenuItems.length > 0
 
+  const { chatUnreadCount, subscribeChatRealtime } = useNotificationStore()
+
+  // 全局订阅聊天消息（用于侧边栏未读徽标）
+  useEffect(() => {
+    if (!user?.id) return
+    const unsub = subscribeChatRealtime(user.id)
+    return unsub
+  }, [user?.id, subscribeChatRealtime])
+
   // 所有菜单项（含设置）
   const allMenuItems = useMemo(() => {
     const items = [...visibleMenuItems]
@@ -284,11 +294,20 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
                     active
                       ? 'bg-[#dddde0] dark:bg-[#2a2a2e] text-foreground shadow-sm'
                       : 'text-foreground/70 hover:bg-accent hover:text-foreground',
-                    collapsed && 'justify-center px-2'
+                    collapsed && 'justify-center px-2 relative'
                   )}
                 >
                   <item.icon className="h-5 w-5 flex-shrink-0 text-[#007aff]" />
                   {!collapsed && <span className="truncate">{item.name}</span>}
+                  {/* 即时通讯未读徽标 */}
+                  {item.path === '/chat' && chatUnreadCount > 0 && (
+                    <span className={cn(
+                      'bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0',
+                      collapsed ? 'absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1' : 'ml-auto min-w-[18px] h-[18px] px-1'
+                    )}>
+                      {chatUnreadCount > 99 ? '99+' : chatUnreadCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}

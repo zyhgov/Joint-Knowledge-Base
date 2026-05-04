@@ -3,9 +3,13 @@ import { notificationService } from '@/services/notificationService'
 import { supabase } from '@/services/supabase'
 import { JkbNotification } from '@/types/files'
 
+// 模块级变量，确保全局聊天订阅只有一个活跃 channel
+let _chatChannel: any = null
+
 interface NotificationStore {
   notifications: JkbNotification[]
   unreadCount: number
+  chatUnreadCount: number
   isOpen: boolean
   isLoading: boolean
   subscription: any | null
@@ -16,11 +20,14 @@ interface NotificationStore {
   markAllAsRead: (userId: string) => Promise<void>
   refresh: (userId: string) => Promise<void>
   subscribeRealtime: (userId: string) => () => void
+  setChatUnreadCount: (count: number) => void
+  subscribeChatRealtime: (userId: string) => () => void
 }
 
 export const useNotificationStore = create<NotificationStore>((set, get) => ({
   notifications: [],
   unreadCount: 0,
+  chatUnreadCount: 0,
   isOpen: false,
   isLoading: false,
   subscription: null,
@@ -62,6 +69,10 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
 
   refresh: async (userId: string) => {
     await get().loadNotifications(userId)
+  },
+
+  setChatUnreadCount: (count: number) => {
+    set({ chatUnreadCount: count })
   },
 
   // 订阅 Supabase Realtime，当有新通知时自动刷新
@@ -109,6 +120,41 @@ export const useNotificationStore = create<NotificationStore>((set, get) => ({
     return () => {
       supabase.removeChannel(channel)
       set({ subscription: null })
+    }
+  },
+
+  // 订阅聊天消息（全局，用于侧边栏未读徽标）
+  subscribeChatRealtime: (userId: string) => {
+    // 确保之前订阅的 channel 先断开（React 严格模式下 effect 可能被调用两次）
+    if (_chatChannel) {
+      supabase.removeChannel(_chatChannel)
+      _chatChannel = null
+    }
+
+    const channelName = `chat-global-unread-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+        },
+        (payload: any) => {
+          const newMsg = payload.new
+          // 只统计非自己发送、非系统消息
+          if (!newMsg || newMsg.sender_id === userId || newMsg.message_type === 'system') return
+          set((state) => ({ chatUnreadCount: state.chatUnreadCount + 1 }))
+        }
+      )
+      .subscribe()
+
+    _chatChannel = channel
+
+    return () => {
+      supabase.removeChannel(channel)
+      if (_chatChannel === channel) _chatChannel = null
     }
   },
 }))

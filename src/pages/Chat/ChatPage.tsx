@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuthStore } from '@/store/authStore'
+import { useNotificationStore } from '@/store/notificationStore'
 import { chatService } from '@/services/chatService'
 import { presenceService } from '@/services/presenceService'
 import { departmentService } from '@/services/departmentService'
@@ -21,12 +22,22 @@ type TabType = 'contacts' | 'conversations'
 
 export default function ChatPage() {
   const { user } = useAuthStore()
+  const { setChatUnreadCount } = useNotificationStore()
   const [activeTab, setActiveTab] = useState<TabType>('conversations')
   const [conversations, setConversations] = useState<ChatConversationWithDetails[]>([])
   const [activeConvId, setActiveConvId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>({})
+  const [isMobile, setIsMobile] = useState(false)
+
+  // 检测屏幕尺寸
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 1024)
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   // 加载会话列表
   const loadConversations = useCallback(async () => {
@@ -54,6 +65,9 @@ export default function ChatPage() {
   useEffect(() => {
     loadConversations()
     loadPresence()
+
+    // 进入聊天页面时重置侧边栏未读徽标
+    setChatUnreadCount(0)
 
     // 订阅新消息
     const msgChannel = supabase
@@ -140,6 +154,8 @@ export default function ChatPage() {
     if (user?.id) {
       await chatService.markAsRead(convId, user.id)
       loadConversations()
+      // 点击任意会话时同步清除侧边栏全局未读徽标
+      setChatUnreadCount(0)
     }
   }
 
@@ -175,10 +191,14 @@ export default function ChatPage() {
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread_count, 0)
 
+  const handleMobileBack = () => {
+    setActiveConvId(null)
+  }
+
   return (
     <div className="flex h-full">
-      {/* 左侧面板 */}
-      <div className="w-80 flex-shrink-0 border-r border-border bg-card flex flex-col">
+      {/* 左侧面板 - 移动端隐藏或显示 */}
+      <div className={`${isMobile && activeConvId ? 'hidden' : 'flex'} w-80 flex-shrink-0 border-r border-border bg-card flex-col`}>
         {/* 标签页头 */}
         <div className="flex items-center border-b border-border px-4 py-3 gap-2">
           <button
@@ -326,13 +346,14 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* 右侧聊天区域 */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* 右侧聊天区域 - 移动端隐藏或显示 */}
+      <div className={`flex-1 flex flex-col min-w-0 ${isMobile && !activeConvId ? 'hidden' : ''}`}>
         {activeConvId ? (
           <ChatWindow
             conversationId={activeConvId}
             userId={user?.id || ''}
             onMessageSent={loadConversations}
+            onBack={isMobile ? handleMobileBack : undefined}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-[#f5f5f7] dark:bg-background">
