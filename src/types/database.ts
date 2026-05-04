@@ -336,3 +336,120 @@ export const TRANSFER_FAN_STATUS_COLORS: Record<string, string> = {
   cancelled: 'text-gray-500 bg-gray-50',
   rejected: 'text-red-600 bg-red-50',
 }
+
+// ====== 站内聊天系统 ======
+
+export type ChatConversationType = 'direct' | 'group'
+export type ChatMessageType = 'text' | 'system' | 'image'
+export type ChatMessageStatus = 'sending' | 'sent' | 'failed' | 'read'
+
+// 会话
+export interface ChatConversation {
+  id: string
+  type: ChatConversationType
+  name: string | null
+  description: string | null
+  avatar_url: string | null
+  created_by: string
+  disbanded_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// 会话参与者
+export interface ChatParticipant {
+  id: string
+  conversation_id: string
+  user_id: string
+  last_read_at: string | null
+  is_muted: boolean
+  joined_at: string
+}
+
+// 消息
+export interface ChatMessage {
+  id: string
+  conversation_id: string
+  sender_id: string
+  content: string
+  message_type: ChatMessageType
+  status: ChatMessageStatus
+  created_at: string
+  edited_at: string | null
+  is_deleted: boolean
+  recalled_at: string | null
+}
+
+// 禁言
+export interface ChatMute {
+  id: string
+  user_id: string
+  conversation_id: string | null
+  muted_by: string
+  reason: string | null
+  expires_at: string | null
+  created_at: string
+}
+
+// 在线状态
+export interface ChatPresence {
+  user_id: string
+  last_seen_at: string
+  is_online: boolean
+}
+
+// 消息已读记录
+export interface ChatMessageRead {
+  id: string
+  message_id: string
+  user_id: string
+  read_at: string
+}
+
+// 带关联数据的会话（前端用）
+export interface ChatConversationWithDetails extends ChatConversation {
+  participants: Array<{
+    user: {
+      id: string
+      display_name: string | null
+      avatar_url: string | null
+      phone: string | null
+    }
+    last_read_at: string | null
+    is_muted: boolean
+  }>
+  last_message: {
+    content: string
+    created_at: string
+    sender_id: string
+    message_type: ChatMessageType
+  } | null
+  unread_count: number
+}
+
+// 带用户信息的消息
+export interface ChatMessageWithSender extends ChatMessage {
+  sender: {
+    id: string
+    display_name: string | null
+    avatar_url: string | null
+  }
+}
+
+// 禁言带操作者信息
+export interface ChatMuteWithDetails extends ChatMute {
+  user?: {
+    id: string
+    display_name: string | null
+    phone: string | null
+  }
+  muted_by_user?: {
+    id: string
+    display_name: string | null
+  }
+  conversation?: {
+    id: string
+    name: string | null
+    type: string
+  } | null
+}

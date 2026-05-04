@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/store/authStore'
 import UserAvatar from '@/components/common/UserAvatar'
+import InstallPrompt from '@/components/common/InstallPrompt'
 import { BuildingOfficeIcon } from '@heroicons/react/24/outline'
 import {
   HomeIcon,
@@ -42,10 +43,16 @@ interface SidebarProps {
 }
 
 const DOUBAO_AVATAR = '/doubao/doubao_avatar.png'
+const RUOSHAN_LOGO = '/ruoshan/ruoshan.png'
 
 // 豆包图片图标
 function DoubaoIcon({ className }: { className?: string }) {
   return <img src={DOUBAO_AVATAR} alt="豆包" className={`${className} rounded-full object-cover`} />
+}
+
+// 若善云系统图标
+function RuoshanIcon({ className }: { className?: string }) {
+  return <img src={RUOSHAN_LOGO} alt="若善云" className={`${className} object-cover`} />
 }
 
 const menuItems = [
@@ -54,6 +61,8 @@ const menuItems = [
   { name: '工作区', icon: FolderIcon, path: '/workspaces', perm: ['workspace_read'] },
   { name: '文件', icon: PaperClipIcon, path: '/files', perm: ['file_read'] },
   { name: '和豆包聊聊', icon: DoubaoIcon, path: '/ai-chat', perm: ['ai_chat_read'] },
+  { name: '若善云系统', icon: RuoshanIcon, path: '/ruoshan', perm: null },
+  { name: '即时通讯', icon: ChatBubbleLeftRightIcon, path: '/chat', perm: null },
 ]
 
 const adminMenuItems = [
@@ -67,6 +76,7 @@ const adminMenuItems = [
   { name: '人力资源管理', icon: UsersIcon, path: '/admin/hr', perm: ['hr_read', 'hr_manage'] },
   { name: '审批管理', icon: ClipboardDocumentCheckIcon, path: '/admin/approval', perm: ['approval_read', 'approval_manage'] },
   { name: 'AI 对话管理', icon: ChatBubbleLeftRightIcon, path: '/admin/ai-chat', perm: ['ai_chat_manage'] },
+  { name: '聊天记录管理', icon: ChatBubbleLeftRightIcon, path: '/admin/chat', perm: ['chat_manage'] },
 ]
 
 const roleLabels: Record<string, string> = {
@@ -383,6 +393,8 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
             </>
           )}
         </button>
+
+        {!collapsed && <InstallPrompt />}
       </div>
 
 {/* 关于本站 */}
@@ -435,6 +447,18 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
 
           <span className="text-muted-foreground">配色参考</span>
           <span className="text-foreground font-medium">Apple</span>
+
+          <span className="text-muted-foreground">字体设计</span>
+          <span className="text-foreground font-medium">OpenAI font</span>
+
+          <span className="text-muted-foreground">位置数据</span>
+          <span className="text-foreground font-medium">ipinfo.io</span>
+
+          <span className="text-muted-foreground">天气数据</span>
+          <span className="text-foreground font-medium">高德地图</span>
+
+          <span className="text-muted-foreground">AI 支持</span>
+          <span className="text-foreground font-medium">Claude Opus 4.5、ChatGPT、Gemini、Qwen、DeepSeek、GLM-5.1等</span>
         </div>
       </div>
 

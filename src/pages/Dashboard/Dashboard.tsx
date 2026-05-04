@@ -36,6 +36,10 @@ import {
 import { transferFanService } from '@/services/transferFanService'
 import { UserWithDepartments } from '@/types/database'
 import { getTodayInfo, getRandomCardBg, getNextCardBg, type TodayInfo } from '@/utils/lunar'
+import { fetchLocationInfo } from '@/services/locationService'
+import type { LocationInfo } from '@/services/locationService'
+import { fetchWeather } from '@/services/weatherService'
+import type { WeatherData } from '@/services/weatherService'
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 B'
@@ -62,6 +66,8 @@ export default function Dashboard() {
   })
   const [todayInfo, setTodayInfo] = useState<TodayInfo | null>(null)
   const [cardBg, setCardBg] = useState('')
+  const [locationInfo, setLocationInfo] = useState<LocationInfo | null>(null)
+  const [weatherInfo, setWeatherInfo] = useState<WeatherData | null>(null)
 
   useEffect(() => {
     const loadData = async () => {
@@ -108,6 +114,16 @@ export default function Dashboard() {
     loadData()
     setTodayInfo(getTodayInfo())
     setCardBg(getRandomCardBg())
+
+    // 获取位置和天气（位置数据有缓存，通常立即返回）
+    fetchLocationInfo().then((loc) => {
+      setLocationInfo(loc)
+      if (loc.city || loc.prov) {
+        fetchWeather(loc).then((w) => {
+          if (w) setWeatherInfo(w)
+        })
+      }
+    })
   }, [user?.id])
 
   // 权限判断
@@ -204,16 +220,35 @@ export default function Dashboard() {
 
   // 时段问候语
   const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour >= 5 && hour < 8) return '早上好'
-    if (hour >= 8 && hour < 11) return '上午好'
-    if (hour >= 11 && hour < 13) return '中午好'
-    if (hour >= 13 && hour < 18) return '下午好'
-    return '晚上好'
+    const totalMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+    if (totalMinutes >= 0 && totalMinutes < 7 * 60) return '夜深了该睡觉了'
+    if (totalMinutes >= 7 * 60 && totalMinutes < 8 * 60) return '上午好，该吃早餐了'
+    if (totalMinutes >= 8 * 60 && totalMinutes < 9 * 60) return '上午好'
+    if (totalMinutes >= 9 * 60 && totalMinutes < 11 * 60 + 30) return '上午好'
+    if (totalMinutes >= 11 * 60 + 30 && totalMinutes < 13 * 60) return '中午好，该吃午饭了'
+    if (totalMinutes >= 13 * 60 && totalMinutes < 18 * 60) return '下午好'
+    if (totalMinutes >= 18 * 60 && totalMinutes < 19 * 60) return '下午好，该吃晚饭了'
+    if (totalMinutes >= 19 * 60 && totalMinutes < 20 * 60) return '晚上好'
+    if (totalMinutes >= 20 * 60 && totalMinutes < 22 * 60) return '晚上好，准备休息吧'
+    return '夜深了该睡觉了'
   }
 
   const handleSwitchBg = () => {
     setCardBg((prev) => getNextCardBg(prev))
+  }
+
+  // 天气现象 → emoji
+  const weatherEmoji = (weather: string): string => {
+    if (weather.includes('晴')) return '☀️'
+    if (weather.includes('多云') || weather.includes('少云')) return '⛅'
+    if (weather.includes('阴')) return '☁️'
+    if (weather.includes('阵雨') || weather.includes('雷阵雨')) return '🌦️'
+    if (weather.includes('雨') && weather.includes('雪')) return '🌨️'
+    if (weather.includes('雨')) return '🌧️'
+    if (weather.includes('雪')) return '❄️'
+    if (weather.includes('雾') || weather.includes('霾')) return '🌫️'
+    if (weather.includes('风')) return '💨'
+    return '🌡️'
   }
 
   if (loading) {
@@ -273,6 +308,34 @@ export default function Dashboard() {
             <h1 className="text-xl sm:text-2xl font-bold text-white drop-shadow-sm">
               {getGreeting()}，{user?.display_name || '用户'}
             </h1>
+
+            {/* IP + 城市 + 天气信息 */}
+            {(locationInfo || weatherInfo) && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2.5 text-xs">
+                {locationInfo?.countryCode && (
+                  <span
+                    className={cn('fi', `fi-${locationInfo.countryCode.toLowerCase()}`, 'rounded-sm shadow-sm')}
+                    style={{ width: 18, height: 14, display: 'inline-block' }}
+                  />
+                )}
+                {locationInfo?.city && (
+                  <span className="text-white/80 font-medium">{locationInfo.city}</span>
+                )}
+                {locationInfo?.ip && (
+                  <span className="text-white/50 font-mono tracking-tight">{locationInfo.ip}</span>
+                )}
+                {weatherInfo && (
+                  <>
+                    <span className="text-white/30">|</span>
+                    <span className="text-white/80">
+                      {weatherEmoji(weatherInfo.weather)} {weatherInfo.temperature}°C
+                    </span>
+                    <span className="text-white/50">{weatherInfo.weather}</span>
+                  </>
+                )}
+              </div>
+            )}
+
             {todayInfo && (
               <p className="text-white/75 mt-2 text-sm sm:text-base leading-relaxed drop-shadow-sm">
                 今天是{todayInfo.gregorian}，<br />今天也是高效工作的一天。让我们一起看看最新的动态。

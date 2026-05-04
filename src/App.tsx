@@ -26,6 +26,9 @@ import TransferFanPage from '@/pages/TransferFan/TransferFanPage'
 import AIChat from '@/pages/AIChat/AIChat'
 import AIChatAdmin from '@/pages/AIChat/AIChatAdmin'
 import PreviewPlaceholder from '@/pages/Admin/PreviewPlaceholder'
+import RuoshanPage from '@/pages/Ruoshan/RuoshanPage'
+import ChatPage from '@/pages/Chat/ChatPage'
+import ChatManagement from '@/pages/Admin/ChatManagement'
 
 // Windows 10/11 风格加载页
 function LoadingScreen() {
@@ -366,6 +369,42 @@ function App() {
             <ProtectedRoute requiredPerms={['transfer_fan_read', 'transfer_fan_create', 'transfer_fan_manage']}>
               <MainLayout title="转粉工单">
                 <TransferFanPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 若善云系统 */}
+        <Route
+          path="/ruoshan"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="若善云系统" noPadding>
+                <RuoshanPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 即时通讯 */}
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="即时通讯" noPadding>
+                <ChatPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 聊天记录管理 */}
+        <Route
+          path="/admin/chat"
+          element={
+            <ProtectedRoute requiredPerms={['chat_manage']}>
+              <MainLayout title="聊天记录管理">
+                <ChatManagement />
               </MainLayout>
             </ProtectedRoute>
           }

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import Sidebar from './Sidebar'
 import UserAvatar from '@/components/common/UserAvatar'
 import NotificationBell from '@/components/common/NotificationBell'
+import LocationInfo from '@/components/common/LocationInfo'
 import {
   Bars3Icon,
   ArrowLeftOnRectangleIcon,
@@ -135,6 +136,11 @@ export default function MainLayout({
                 {actions}
               </div>
             )}
+
+            {/* 位置信息 */}
+            <LocationInfo />
+            {/* 分隔线 */}
+            <div className="hidden sm:block w-px h-6 bg-border mx-1" />
 
             {/* 通知按钮 */}
             <NotificationBell />
