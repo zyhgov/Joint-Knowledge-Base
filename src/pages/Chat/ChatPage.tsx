@@ -16,7 +16,8 @@ import { triggerMessageNotification } from '@/hooks/useChatNotification'
 import ContactsPanel from './ContactsPanel'
 import ChatWindow from './ChatWindow'
 import CreateGroupDialog from './CreateGroupDialog'
-import { ChatBubbleLeftRightIcon, PlusIcon, UsersIcon } from '@heroicons/react/24/outline'
+import MessageSearchDialog from './MessageSearchDialog'
+import { ChatBubbleLeftRightIcon, PlusIcon, UsersIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 
 type TabType = 'contacts' | 'conversations'
 
@@ -30,6 +31,9 @@ export default function ChatPage() {
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>({})
   const [isMobile, setIsMobile] = useState(false)
+  const [deptMap, setDeptMap] = useState<Record<string, string>>({})
+  const [showSearch, setShowSearch] = useState(false)
+  const [pendingMsgId, setPendingMsgId] = useState<string | null>(null)
 
   // 检测屏幕尺寸
   useEffect(() => {
@@ -61,6 +65,22 @@ export default function ChatPage() {
       // 表可能还没有创建
     }
   }, [])
+
+  // 加载用户部门信息
+  const loadDepartments = useCallback(async () => {
+    const map: Record<string, string> = {}
+    for (const conv of conversations) {
+      if (conv.type === 'group') continue
+      const other = conv.participants.find(p => p.user.id !== user?.id)
+      if (!other) continue
+      try {
+        const depts = await departmentService.getUserDepartments(other.user.id)
+        const primary = depts.find(d => d.is_primary)
+        if (primary) map[other.user.id] = primary.department.name
+      } catch {}
+    }
+    setDeptMap(map)
+  }, [conversations, user?.id])
 
   useEffect(() => {
     loadConversations()
@@ -124,7 +144,11 @@ export default function ChatPage() {
       supabase.removeChannel(msgChannel)
       supabase.removeChannel(presenceChannel)
     }
-  }, [loadConversations, loadPresence])
+}, [loadConversations, loadPresence, loadDepartments])
+
+  useEffect(() => {
+    if (conversations.length > 0) loadDepartments()
+  }, [conversations.length, loadDepartments])
 
   // 启动心跳
   useEffect(() => {
@@ -180,6 +204,32 @@ export default function ChatPage() {
     return other?.user.avatar_url || null
   }
 
+  // 获取会话显示名（供消息搜索组件使用）
+  const getConvName = useCallback((convId: string): string => {
+    const conv = conversations.find(c => c.id === convId)
+    if (!conv) return '未知会话'
+    if (conv.type === 'group') return conv.name || '群聊'
+    const other = conv.participants.find(p => p.user.id !== user?.id)
+    return other?.user.display_name || other?.user.phone || '未知用户'
+  }, [conversations, user?.id])
+
+  // 置顶/取消置顶
+  const handleTogglePin = async (convId: string) => {
+    if (!user?.id) return
+    const conv = conversations.find(c => c.id === convId)
+    if (!conv) return
+    try {
+      if (conv.pinned_at) {
+        await chatService.unpinConversation(convId, user.id)
+      } else {
+        await chatService.pinConversation(convId, user.id)
+      }
+      await loadConversations()
+    } catch (err) {
+      console.error('操作置顶失败:', err)
+    }
+  }
+
   // 截取最新消息预览
   const getLastMessagePreview = (conv: ChatConversationWithDetails): string => {
     if (!conv.last_message) return ''
@@ -232,6 +282,14 @@ export default function ChatPage() {
           <div className="flex-1" />
 
           <button
+            onClick={() => setShowSearch(true)}
+            className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-all"
+            title="搜索消息"
+          >
+            <MagnifyingGlassIcon className="h-4 w-4" />
+          </button>
+
+          <button
             onClick={() => setShowCreateGroup(true)}
             className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-all"
             title="创建群聊"
@@ -264,7 +322,7 @@ export default function ChatPage() {
                   <button
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv.id)}
-                    className={`w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors ${
+                    className={`w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors group ${
                       activeConvId === conv.id ? 'bg-accent' : ''
                     }`}
                   >
@@ -296,7 +354,17 @@ export default function ChatPage() {
                               <>
                                 <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-sm font-medium">
                                   {avatarUrl ? (
-                                    <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+                                    <img
+                                      src={avatarUrl}
+                                      alt={name}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const t = e.target as HTMLImageElement
+                                        t.style.display = 'none'
+                                        const p = t.parentElement!
+                                        p.innerHTML = `<span class="text-sm font-medium text-white">${initial}</span>`
+                                      }}
+                                    />
                                   ) : (
                                     initial
                                   )}
@@ -315,14 +383,31 @@ export default function ChatPage() {
                       {/* 内容 */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium truncate">
+                          <span className="text-sm font-medium truncate flex items-center gap-1.5">
+                            {conv.pinned_at && (
+                              <svg className="h-3 w-3 text-primary/60 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/>
+                              </svg>
+                            )}
                             {getConvDisplayName(conv)}
                           </span>
-                          {conv.last_message && (
-                            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-                              {formatTime(conv.last_message.created_at)}
-                            </span>
-                          )}
+                          {/* 时间 + 置顶按钮 合并在一行右侧 */}
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            {conv.last_message && (
+                              <span className="text-[10px] text-muted-foreground">
+                                {formatTime(conv.last_message.created_at)}
+                              </span>
+                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTogglePin(conv.id) }}
+                              className="p-0.5 rounded text-muted-foreground/40 hover:text-primary/60 hover:bg-accent/50 opacity-0 group-hover:opacity-100 transition-all"
+                              title={conv.pinned_at ? '取消置顶' : '置顶会话'}
+                            >
+                              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs text-muted-foreground truncate">
@@ -336,6 +421,17 @@ export default function ChatPage() {
                             </span>
                           )}
                         </div>
+                        {/* 显示部门信息（私聊） */}
+                        {conv.type === 'direct' && (() => {
+                          const other = conv.participants.find(p => p.user.id !== user?.id)
+                          const deptName = other ? deptMap[other.user.id] : null
+                          if (!deptName) return null
+                          return (
+                            <span className="text-[10px] text-muted-foreground/60 mt-0.5 block">
+                              {deptName}
+                            </span>
+                          )
+                        })()}
                       </div>
                     </div>
                   </button>
@@ -354,6 +450,8 @@ export default function ChatPage() {
             userId={user?.id || ''}
             onMessageSent={loadConversations}
             onBack={isMobile ? handleMobileBack : undefined}
+            scrollToMessageId={pendingMsgId}
+            onScrollHandled={() => setPendingMsgId(null)}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-[#f5f5f7] dark:bg-background">
@@ -376,16 +474,30 @@ export default function ChatPage() {
           userId={user?.id || ''}
         />
       )}
+
+      {/* 消息搜索弹窗 */}
+      {showSearch && user?.id && (
+        <MessageSearchDialog
+          userId={user.id}
+          onSelectResult={(convId, msgId) => {
+            handleSelectConversation(convId)
+            setPendingMsgId(msgId)
+          }}
+          onClose={() => setShowSearch(false)}
+          getConvName={getConvName}
+        />
+      )}
     </div>
   )
 }
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return ''
   const now = new Date()
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 
-  if (diffDays === 0) {
+  if (diffDays <= 0) {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   } else if (diffDays === 1) {
     return '昨天'

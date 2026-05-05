@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore'
 import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { CameraIcon } from '@heroicons/react/24/outline'
+import { compressToFile } from '@/utils/imageCompress'
 
 interface AvatarUploadProps {
   size?: 'sm' | 'md' | 'lg' | 'xl'
@@ -28,8 +29,8 @@ export default function AvatarUpload({ size = 'xl' }: AvatarUploadProps) {
     if (!file) return
 
     const validation = r2Service.validateFile(file, {
-      maxSizeMB: 2,
-      allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+      maxSizeMB: 10,
+      allowedTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'],
     })
 
     if (!validation.valid) {
@@ -40,12 +41,15 @@ export default function AvatarUpload({ size = 'xl' }: AvatarUploadProps) {
     setUploading(true)
     setProgress(0)
 
-    // 先用本地预览（立即响应）
-    const localUrl = URL.createObjectURL(file)
+    // 先压缩（AVIF/WebP，限制1MB以内）
+    const compressed = await compressToFile(file, undefined, 1 * 1024 * 1024)
+
+    // 本地预览（用压缩后的图片预览）
+    const localUrl = URL.createObjectURL(compressed)
     updateUser({ avatar_url: localUrl })
 
     try {
-      const result = await r2Service.uploadFile(file, 'avatars', (p) => {
+      const result = await r2Service.uploadFile(compressed, 'avatars', (p) => {
         setProgress(p)
       })
 
@@ -130,7 +134,7 @@ export default function AvatarUpload({ size = 'xl' }: AvatarUploadProps) {
           {uploading ? `上传中 ${progress}%` : '更换头像'}
         </button>
         <p className="text-xs text-muted-foreground mt-0.5">
-          JPG、PNG、WebP，最大 2MB
+          自动压缩为 AVIF/WebP，最大 1MB
         </p>
       </div>
 

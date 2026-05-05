@@ -90,6 +90,16 @@ const roleLabels: Record<string, string> = {
 
 const changelogData = [
   {
+    version: "v1.3.0",
+    date: "2026-05-05",
+    changes: [
+      "✨ 新增若善云系统侧边栏，方便快速使用系统",
+      "✨ 现已支持即时通讯功能，方便团队成员之间进行实时交流",
+      "🎨 优化 UI 设计提升用户体验",
+      "🐛 修复已知问题，提升系统稳定性"
+    ]
+  },
+  {
     version: "v1.2.0",
     date: "2026-05-03",
     changes: [
@@ -423,7 +433,7 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
       <div className="flex items-center justify-between">
         <DialogTitle className="text-xl font-semibold">关于联合知识库JKB</DialogTitle>
         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary">
-          当前版本 v1.2.0
+          当前版本 v1.3.0
         </span>
       </div>
     </DialogHeader>

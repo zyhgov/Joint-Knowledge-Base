@@ -74,6 +74,94 @@ app.post("/api/chat", async (c) => {
   });
 });
 
+// 链接预览 - 获取网页 OG 元数据
+app.get("/api/link-preview", async (c) => {
+  const url = c.req.query("url");
+  if (!url) {
+    return c.json({ error: "缺少 url 参数" }, 400);
+  }
+
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; JKB-LinkPreview/1.0)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      return c.json({ error: `获取页面失败: ${response.status}` }, 502);
+    }
+
+    const html = await response.text();
+
+    // 提取 OG 标签
+    const extractMeta = (property: string): string | null => {
+      // 匹配 <meta property="og:..." content="..." />
+      const regex = new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']*)["']`, "i");
+      const match = html.match(regex);
+      if (match) return match[1];
+      // 也匹配 content 在前的格式
+      const regex2 = new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${property}["']`, "i");
+      const match2 = html.match(regex2);
+      return match2 ? match2[1] : null;
+    };
+
+    // 提取标题（优先 og:title，再取 <title>）
+    let title = extractMeta("og:title");
+    if (!title) {
+      const titleMatch = html.match(/<title>([^<]*)<\/title>/i);
+      title = titleMatch ? titleMatch[1].trim() : null;
+    }
+
+    // 提取描述
+    let description = extractMeta("og:description");
+    if (!description) {
+      description = extractMeta("description");
+    }
+
+    // 提取图片
+    const image = extractMeta("og:image");
+
+    // 提取站点名称
+    const siteName = extractMeta("og:site_name");
+
+    // 提取 favicon
+    let favicon: string | null = null;
+    const faviconMatch = html.match(/<link[^>]+rel=["'](?:icon|shortcut icon)["'][^>]+href=["']([^"']*)["']/i);
+    if (faviconMatch) {
+      favicon = faviconMatch[1];
+      // 处理相对路径
+      if (favicon.startsWith("//")) {
+        favicon = "https:" + favicon;
+      } else if (favicon.startsWith("/")) {
+        try {
+          const urlObj = new URL(url);
+          favicon = urlObj.origin + favicon;
+        } catch {}
+      }
+    }
+    if (!favicon) {
+      try {
+        const urlObj = new URL(url);
+        favicon = urlObj.origin + "/favicon.ico";
+      } catch {}
+    }
+
+    return c.json({
+      title: title || null,
+      description: description || null,
+      image: image || null,
+      siteName: siteName || null,
+      favicon,
+      url,
+    });
+  } catch (err: any) {
+    return c.json({ error: `获取链接预览失败: ${err.message}` }, 502);
+  }
+});
+
 // Yjs 协作路由 - WebSocket 连接端点
 // 客户端通过 ws://host/editor/{docId} 连接
 const route = app.route(

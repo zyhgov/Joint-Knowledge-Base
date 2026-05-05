@@ -201,8 +201,8 @@ export default function LocationInfo() {
                     <span className="text-sm">{getWeatherEmoji(weather.weather)}</span>
                     实时天气 · {weather.city}
                   </p>
-                  <span className="text-[10px] text-muted-foreground/50">
-                    {weather.reporttime ? formatTime(weather.reporttime) : ''}
+                 <span className="text-[10px] text-muted-foreground/50">
+                    {weather.reporttime ? `更新于 ${formatTime(weather.reporttime)}` : ''}
                   </span>
                 </div>
 
@@ -338,10 +338,18 @@ function WeatherDetail({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** 格式化高德时间 "2025-03-18 14:30:00" → "14:30" */
+/** 格式化高德时间 "2025-03-18 01:27:00"（北京时间）→ 本地时间 "14:27" */
 function formatTime(reporttime: string): string {
-  const match = reporttime.match(/(\d{2}:\d{2})$/)
-  return match ? match[1] : reporttime.slice(11, 16)
+  // 高德天气 reporttime 是北京时间 (UTC+8)，转成 Date 对象
+  const match = reporttime.match(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/)
+  if (!match) return reporttime.slice(11, 16)
+  // 构造北京时间字符串，Date.parse 自动处理时区
+  const beijingStr = `${match[1]}T${match[2]}+08:00`
+  const localDate = new Date(beijingStr)
+  if (isNaN(localDate.getTime())) return match[2].slice(0, 5)
+  const hh = localDate.getHours().toString().padStart(2, '0')
+  const mm = localDate.getMinutes().toString().padStart(2, '0')
+  return `${hh}:${mm}`
 }
 
 /* ============ 网络变更通知吐司 ============ */

@@ -218,6 +218,20 @@
   }
 }
 
+/* 骨架加载光效 - 左右扫光 */
+@keyframes thinking-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-thinking-shimmer {
+  animation: thinking-shimmer 2s ease-in-out infinite;
+}
+
 /* 古诗词淡入淡出切换 */
 @keyframes poem-fade-in {
   from {
@@ -478,6 +492,21 @@
   white-space: nowrap;
   pointer-events: none;
   opacity: 0.9;
+}
+
+/* 消息搜索结果定位高亮动画：黄色背景渐隐 */
+@keyframes search-highlight-pulse {
+  0% {
+    background-color: rgba(253, 224, 71, 0.4);
+    border-radius: 8px;
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-search-highlight {
+  animation: search-highlight-pulse 2s ease-out forwards;
 }
 
 /* 旧版协作光标兼容 */

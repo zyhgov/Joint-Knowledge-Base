@@ -218,11 +218,11 @@ export default function AIChatAdmin() {
   return (
     <div className="h-full flex flex-col p-6">
       {/* 标签页切换 */}
-      <div className="flex gap-1 mb-6 bg-gray-100 rounded-lg p-1 w-fit">
+      <div className="flex gap-1 mb-6 bg-muted rounded-lg p-1 w-fit">
         <button
           onClick={() => { setTab('conversations'); setPage(1) }}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-            tab === 'conversations' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            tab === 'conversations' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <ChatBubbleLeftRightIcon className="h-4 w-4 inline mr-1.5" />
@@ -231,7 +231,7 @@ export default function AIChatAdmin() {
         <button
           onClick={() => setTab('bans')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-            tab === 'bans' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            tab === 'bans' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <NoSymbolIcon className="h-4 w-4 inline mr-1.5" />
@@ -240,7 +240,7 @@ export default function AIChatAdmin() {
         <button
           onClick={() => setTab('knowledge')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-            tab === 'knowledge' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            tab === 'knowledge' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <BookOpenIcon className="h-4 w-4 inline mr-1.5" />
@@ -249,7 +249,7 @@ export default function AIChatAdmin() {
         <button
           onClick={() => setTab('presets')}
           className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${
-            tab === 'presets' ? 'bg-white text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+            tab === 'presets' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <LightBulbIcon className="h-4 w-4 inline mr-1.5" />
@@ -263,10 +263,10 @@ export default function AIChatAdmin() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <button onClick={() => { setDeletedOnly(false); setPage(1) }}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${!deletedOnly ? 'bg-[#007aff] text-white shadow-sm' : 'bg-gray-100 text-muted-foreground hover:text-foreground'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${!deletedOnly ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
               >全部</button>
               <button onClick={() => { setDeletedOnly(true); setPage(1) }}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${deletedOnly ? 'bg-[#007aff] text-white shadow-sm' : 'bg-gray-100 text-muted-foreground hover:text-foreground'}`}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${deletedOnly ? 'bg-primary text-white shadow-sm' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
               ><TrashIcon className="h-3.5 w-3.5 inline mr-0.5" />已删除</button>
             </div>
             <div className="flex items-center gap-2">
@@ -276,13 +276,13 @@ export default function AIChatAdmin() {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 placeholder="搜索用户 ID..."
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#007aff]/20 focus:border-[#007aff]"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-border rounded-lg bg-card focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 onKeyDown={(e) => { if (e.key === 'Enter') { setSearchUserId(searchInput); setPage(1) } }}
               />
             </div>
             <button
               onClick={() => { setSearchUserId(searchInput); setPage(1) }}
-              className="px-3 py-2 text-sm bg-[#007aff] text-white rounded-lg hover:bg-blue-600 transition-colors"
+              className="px-3 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
             >
               搜索
             </button>
@@ -302,7 +302,7 @@ export default function AIChatAdmin() {
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007aff] mr-2" />
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2" />
                 加载中...
               </div>
             ) : conversations.length === 0 ? (
@@ -310,10 +310,10 @@ export default function AIChatAdmin() {
             ) : (
               <div className="space-y-2">
                 {conversations.map((conv) => (
-                  <div key={conv.id} className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                  <div key={conv.id} className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
                     {/* 会话行 */}
                     <div
-                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                       onClick={() => handleExpandConv(conv.id)}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -341,13 +341,13 @@ export default function AIChatAdmin() {
 
                     {/* 展开的消息 */}
                     {expandedConvId === conv.id && (
-                      <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 max-h-64 overflow-y-auto space-y-2">
+                      <div className="border-t border-border px-4 py-3 bg-muted/30 max-h-64 overflow-y-auto space-y-2">
                         {convMessages.map((msg) => (
                           <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`max-w-[80%] px-3 py-2 text-xs rounded-lg leading-relaxed ${
                               msg.role === 'user'
-                                ? 'bg-[#007aff] text-white rounded-br-sm'
-                                : 'bg-white border border-gray-200 rounded-bl-sm'
+                                ? 'bg-primary text-white rounded-br-sm'
+                                : 'bg-card border border-border rounded-bl-sm'
                             }`}>
                               {msg.content || '(空)'}
                             </div>
@@ -372,7 +372,7 @@ export default function AIChatAdmin() {
                 <button
                   disabled={page <= 1}
                   onClick={() => setPage(p => Math.max(1, p - 1))}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card disabled:opacity-40 hover:bg-accent transition-colors"
                 >
                   上一页
                 </button>
@@ -380,7 +380,7 @@ export default function AIChatAdmin() {
                 <button
                   disabled={page >= totalPages}
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                  className="px-3 py-1.5 text-xs rounded-lg border border-gray-200 bg-white disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                  className="px-3 py-1.5 text-xs rounded-lg border border-border bg-card disabled:opacity-40 hover:bg-accent transition-colors"
                 >
                   下一页
                 </button>
@@ -393,7 +393,7 @@ export default function AIChatAdmin() {
       {tab === 'bans' && (
         <>
           {/* 封禁表单 */}
-          <div className="bg-white border border-gray-100 rounded-xl p-4 mb-4 shadow-sm">
+          <div className="bg-card border border-border rounded-xl p-4 mb-4 shadow-sm">
             <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <NoSymbolIcon className="h-4 w-4 text-red-500" />
               封禁用户 AI 功能
@@ -405,7 +405,7 @@ export default function AIChatAdmin() {
                   value={banUserId}
                   onChange={(e) => setBanUserId(e.target.value)}
                   placeholder="输入要封禁的用户 ID..."
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400"
                 />
               </div>
               <div className="flex-1">
@@ -414,7 +414,7 @@ export default function AIChatAdmin() {
                   value={banReason}
                   onChange={(e) => setBanReason(e.target.value)}
                   placeholder="例如：滥用 AI 功能"
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400"
+                  className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 focus:outline-none focus:ring-2 focus:ring-red-400/20 focus:border-red-400"
                 />
               </div>
               <button
@@ -441,7 +441,7 @@ export default function AIChatAdmin() {
             ) : (
               <div className="space-y-2">
                 {bannedUsers.map((ban) => (
-                  <div key={ban.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm">
+                  <div key={ban.id} className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-9 h-9 rounded-full bg-red-50 flex items-center justify-center">
                         <ExclamationTriangleIcon className="h-4 w-4 text-red-500" />
@@ -480,7 +480,7 @@ export default function AIChatAdmin() {
       {tab === 'knowledge' && (
         <>
           <div className="flex-1 flex flex-col gap-4">
-            <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
               <h3 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2">
                 <BookOpenIcon className="h-4 w-4 text-[#007aff]" />
                 知识预设
@@ -491,7 +491,7 @@ export default function AIChatAdmin() {
               </p>
               {knowledgeLoading ? (
                 <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#007aff] mr-2" />
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mr-2" />
                   加载中...
                 </div>
               ) : (
@@ -500,7 +500,7 @@ export default function AIChatAdmin() {
                     value={knowledgeContent}
                     onChange={(e) => setKnowledgeContent(e.target.value)}
                     placeholder="输入知识预设内容，AI 会参考这些内容回答用户的问题...&#10;&#10;例如：&#10;1. 转粉功能：用户可以将源账号的粉丝转移到目标账号，支持批量操作&#10;2. 转粉加急：提供加急处理通道，优先处理转粉请求&#10;3. 转粉统计：管理员可以查看转粉数据的统计分析&#10;..."
-                    className="w-full h-64 px-4 py-3 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#007aff]/20 focus:border-[#007aff] resize-y font-mono leading-relaxed"
+                    className="w-full h-64 px-4 py-3 text-sm border border-border rounded-lg bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-y font-mono leading-relaxed"
                   />
                   <div className="flex items-center justify-between mt-3">
                     <span className="text-xs text-muted-foreground">
@@ -509,7 +509,7 @@ export default function AIChatAdmin() {
                     <button
                       onClick={handleSaveKnowledge}
                       disabled={knowledgeSaving}
-                      className="px-5 py-2 text-sm font-medium text-white bg-[#007aff] hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
+                      className="px-5 py-2 text-sm font-medium text-white bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors"
                     >
                       {knowledgeSaving ? '保存中...' : '保存知识预设'}
                     </button>
@@ -534,13 +534,13 @@ export default function AIChatAdmin() {
                 value={newQuestionText}
                 onChange={(e) => setNewQuestionText(e.target.value)}
                 placeholder="输入预设问题..."
-                className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#007aff]/20 focus:border-[#007aff]"
+                className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-muted/30 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 onKeyDown={(e) => { if (e.key === 'Enter') handleAddQuestion() }}
               />
               <button
                 onClick={handleAddQuestion}
                 disabled={!newQuestionText.trim()}
-                className="px-4 py-2 text-sm text-white bg-[#007aff] rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <PlusIcon className="h-4 w-4 inline mr-1" />
                 添加
@@ -552,28 +552,28 @@ export default function AIChatAdmin() {
           <div className="flex-1 overflow-y-auto">
             {presetQuestions.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-12">
-                <LightBulbIcon className="h-10 w-10 mx-auto mb-2 text-gray-300" />
+                <LightBulbIcon className="h-10 w-10 mx-auto mb-2 text-muted-foreground/40" />
                 暂无预设问题，在上方添加第一条吧
               </div>
             ) : (
               <div className="space-y-2">
                 {presetQuestions.map((q) => (
-                  <div key={q.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 shadow-sm">
+                  <div key={q.id} className="flex items-center justify-between bg-card border border-border rounded-xl px-4 py-3 shadow-sm">
                     <div className="flex-1 min-w-0">
                       {editingQuestionId === q.id ? (
                         <div className="flex items-center gap-2">
                           <input
                             value={editingQuestionText}
                             onChange={(e) => setEditingQuestionText(e.target.value)}
-                            className="flex-1 px-3 py-1.5 text-sm border border-[#007aff] rounded-lg bg-white focus:outline-none"
+                            className="flex-1 px-3 py-1.5 text-sm border border-primary rounded-lg bg-card focus:outline-none"
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') handleEditQuestion(q.id)
                               if (e.key === 'Escape') setEditingQuestionId(null)
                             }}
                             autoFocus
                           />
-                          <button onClick={() => handleEditQuestion(q.id)} className="px-2.5 py-1.5 text-xs font-medium text-white bg-[#007aff] rounded-lg hover:bg-blue-600 transition-colors">保存</button>
-                          <button onClick={() => setEditingQuestionId(null)} className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+                          <button onClick={() => handleEditQuestion(q.id)} className="px-2.5 py-1.5 text-xs font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors">保存</button>
+                          <button onClick={() => setEditingQuestionId(null)} className="px-2.5 py-1.5 text-xs font-medium text-muted-foreground bg-muted rounded-lg hover:bg-accent transition-colors">取消</button>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2.5">
@@ -581,7 +581,7 @@ export default function AIChatAdmin() {
                             {q.question}
                           </span>
                           {q.is_hidden && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-muted-foreground">已隐藏</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">已隐藏</span>
                           )}
                         </div>
                       )}

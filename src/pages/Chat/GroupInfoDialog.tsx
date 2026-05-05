@@ -142,9 +142,13 @@ export default function GroupInfoDialog({
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0]
       if (!file) return
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error('图片过大，请选择 10MB 以内的图片')
+        return
+      }
       setUploading(true)
       try {
-        const compressed = await compressToFile(file)
+        const compressed = await compressToFile(file, undefined, 1 * 1024 * 1024)
         const result = await r2Service.uploadFile(compressed, 'avatars')
         await chatService.updateGroupAvatar(conversationId, result.url)
         toast.success('群头像已更新')

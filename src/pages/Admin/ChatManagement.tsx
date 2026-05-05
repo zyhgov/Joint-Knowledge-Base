@@ -17,6 +17,8 @@ import {
   MicrophoneIcon,
 } from '@heroicons/react/24/outline'
 
+const PAGE_SIZE = 20
+
 type Tab = 'conversations' | 'messages' | 'mutes'
 
 export default function ChatManagement() {
@@ -39,6 +41,9 @@ export default function ChatManagement() {
 
   // 搜索
   const [searchQuery, setSearchQuery] = useState('')
+  // 分页
+  const [convPage, setConvPage] = useState(1)
+  const [msgPage, setMsgPage] = useState(1)
 
   useEffect(() => {
     loadAllData()
@@ -93,6 +98,13 @@ export default function ChatManagement() {
     if (conv.type === 'group') return conv.name || '群聊'
     const other = conv.participants.find(p => p.user.id !== user?.id)
     return other?.user.display_name || other?.user.phone || '私聊'
+  }
+
+  // 获取会话头像
+  const getConvAvatar = (conv: ChatConversationWithDetails) => {
+    if (conv.type === 'group') return conv.avatar_url || null
+    const other = conv.participants.find(p => p.user.id !== user?.id)
+    return other?.user.avatar_url || null
   }
 
   // 渲染管理后台的消息内容（支持图片、已撤回）
@@ -189,11 +201,16 @@ export default function ChatManagement() {
       )
     : conversations
 
+  const paginatedConvs = filteredConvs.slice((convPage - 1) * PAGE_SIZE, convPage * PAGE_SIZE)
+  const convTotalPages = Math.ceil(filteredConvs.length / PAGE_SIZE)
+
   const filteredMessages = convMessages.filter(m => {
     if (!searchQuery.trim()) return true
     return m.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (m.sender?.display_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   })
+  const paginatedMsgs = filteredMessages.slice((msgPage - 1) * PAGE_SIZE, msgPage * PAGE_SIZE)
+  const msgTotalPages = Math.ceil(filteredMessages.length / PAGE_SIZE)
 
   return (
     <div className="space-y-6">
@@ -278,6 +295,25 @@ export default function ChatManagement() {
               ))
             )}
           </div>
+          {/* 会话分页 */}
+          {convTotalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <span className="text-xs text-muted-foreground">共 {filteredConvs.length} 条</span>
+              <div className="flex gap-1">
+                <button
+                  disabled={convPage <= 1}
+                  onClick={() => setConvPage(p => Math.max(1, p - 1))}
+                  className="px-3 py-1 text-xs rounded-lg border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+                >上一页</button>
+                <span className="px-3 py-1 text-xs text-muted-foreground">{convPage}/{convTotalPages}</span>
+                <button
+                  disabled={convPage >= convTotalPages}
+                  onClick={() => setConvPage(p => Math.min(convTotalPages, p + 1))}
+                  className="px-3 py-1 text-xs rounded-lg border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+                >下一页</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -301,10 +337,14 @@ export default function ChatManagement() {
                 {filteredMessages.length === 0 ? (
                   <div className="text-center py-8 text-sm text-muted-foreground">暂无消息</div>
                 ) : (
-                  filteredMessages.map(msg => (
+                  paginatedMsgs.map(msg => (
                     <div key={msg.id} className="flex items-start gap-3 text-sm">
-                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[9px] font-medium flex-shrink-0 mt-0.5">
-                        {(msg.sender?.display_name || msg.sender_id).charAt(0).toUpperCase()}
+                      <div className="w-6 h-6 rounded-full overflow-hidden bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-white text-[9px] font-medium flex-shrink-0 mt-0.5">
+                        {msg.sender?.avatar_url ? (
+                          <img src={msg.sender.avatar_url} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          (msg.sender?.display_name || msg.sender_id).charAt(0).toUpperCase()
+                        )}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -329,6 +369,25 @@ export default function ChatManagement() {
                   ))
                 )}
               </div>
+              {/* 消息分页 */}
+              {msgTotalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                  <span className="text-xs text-muted-foreground">共 {filteredMessages.length} 条</span>
+                  <div className="flex gap-1">
+                    <button
+                      disabled={msgPage <= 1}
+                      onClick={() => setMsgPage(p => Math.max(1, p - 1))}
+                      className="px-3 py-1 text-xs rounded-lg border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+                    >上一页</button>
+                    <span className="px-3 py-1 text-xs text-muted-foreground">{msgPage}/{msgTotalPages}</span>
+                    <button
+                      disabled={msgPage >= msgTotalPages}
+                      onClick={() => setMsgPage(p => Math.min(msgTotalPages, p + 1))}
+                      className="px-3 py-1 text-xs rounded-lg border border-border bg-card hover:bg-accent disabled:opacity-40 transition-colors"
+                    >下一页</button>
+                  </div>
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-12 text-sm text-muted-foreground">

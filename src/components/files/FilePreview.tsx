@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { JkbFile } from '@/types/files'
 import { cn } from '@/lib/utils'
 import { isImageFile, isPreviewableInIframe, isOfficePreviewable, getFileIconConfig } from './FileIcon'
@@ -21,6 +21,7 @@ import {
   LockClosedIcon,
   GlobeAltIcon,
   ShieldCheckIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline'
 import UserAvatar from '@/components/common/UserAvatar'
 import { JkbWorkspace } from '@/types/files'
@@ -69,6 +70,8 @@ export default function FilePreview({ file, onClose, onDownload, workspaces = []
   const [textContent, setTextContent] = useState<string | null>(null)
   const [loadingText, setLoadingText] = useState(false)
   const [mediaPlayerOpen, setMediaPlayerOpen] = useState(false)
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const isImage = isImageFile(file.file_ext)
   const isIframe = isPreviewableInIframe(file.file_ext)
   const isOffice = isOfficePreviewable(file.file_ext)
@@ -98,6 +101,26 @@ export default function FilePreview({ file, onClose, onDownload, workspaces = []
         })
     }
   }, [file.public_url, isTextFile, isMarkdownFile])
+
+  // 文件切换时重置图片加载状态
+  useEffect(() => {
+    setImageLoaded(false)
+    setImageError(false)
+    setZoom(100)
+    setRotation(0)
+  }, [file.id])
+
+  // 键盘快捷键
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose()
+    }
+  }, [onClose])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   return (
     <div className="fixed inset-0 z-50 flex h-screen">
@@ -153,14 +176,32 @@ export default function FilePreview({ file, onClose, onDownload, workspaces = []
         {/* 预览区域 */}
         <div className="flex-1 overflow-auto flex items-center justify-center p-6">
           {isImage && (
-            <img
-              src={file.public_url}
-              alt={file.display_name}
-              className="max-w-full max-h-full object-contain transition-transform duration-200"
-              style={{
-                transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
-              }}
-            />
+            <div className="relative max-w-full max-h-full flex items-center justify-center">
+              {/* 加载占位 */}
+              {!imageLoaded && !imageError && (
+                <div className="w-64 h-64 rounded-xl bg-muted/50 animate-pulse flex items-center justify-center">
+                  <span className="animate-spin h-8 w-8 border-b-2 border-primary rounded-full" />
+                </div>
+              )}
+              {/* 加载失败 */}
+              {imageError && (
+                <div className="text-center">
+                  <ExclamationTriangleIcon className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
+                  <p className="text-sm text-muted-foreground">图片加载失败</p>
+                  <p className="text-xs text-muted-foreground/60 mt-1">请检查文件是否存在或网络连接</p>
+                </div>
+              )}
+              <img
+                src={file.public_url}
+                alt={file.display_name}
+                className={`max-w-full max-h-full object-contain transition-transform duration-200 ${imageLoaded ? 'block' : 'hidden'}`}
+                style={{
+                  transform: `scale(${zoom / 100}) rotate(${rotation}deg)`,
+                }}
+                onLoad={() => { setImageLoaded(true); setImageError(false) }}
+                onError={() => { setImageLoaded(true); setImageError(true) }}
+              />
+            </div>
           )}
 
           {isIframe && !isTextFile && !isMarkdownFile && (

@@ -21,10 +21,11 @@ export const chatService = {
         conversation_id,
         last_read_at,
         is_muted,
+        pinned_at,
         conversation:chat_conversations(
           id, type, name, description, avatar_url, created_by, created_at, updated_at, disbanded_at,
           participants:chat_participants(
-            last_read_at, is_muted,
+            last_read_at, is_muted, pinned_at,
             user:jkb_users(id, display_name, avatar_url, phone)
           )
         )
@@ -89,18 +90,23 @@ export const chatService = {
         disbanded_at: conv.disbanded_at,
         created_at: conv.created_at,
         updated_at: conv.updated_at,
+        pinned_at: p.pinned_at || null,
         participants: (conv.participants || []).map((cp: any) => ({
           user: cp.user,
           last_read_at: cp.last_read_at,
           is_muted: cp.is_muted,
+          pinned_at: cp.pinned_at || null,
         })),
         last_message: lastMsg || null,
         unread_count: unreadCount,
       })
     }
 
-    // 按最后消息时间排序
+    // 排序：置顶的优先，然后按最后消息时间排序
     results.sort((a, b) => {
+      const aPinned = a.pinned_at ? new Date(a.pinned_at).getTime() : 0
+      const bPinned = b.pinned_at ? new Date(b.pinned_at).getTime() : 0
+      if (aPinned !== bPinned) return bPinned - aPinned
       const aTime = a.last_message?.created_at || a.created_at
       const bTime = b.last_message?.created_at || b.created_at
       return new Date(bTime).getTime() - new Date(aTime).getTime()
@@ -210,7 +216,7 @@ export const chatService = {
       .from('chat_messages')
       .select(`
         id, conversation_id, sender_id, content, message_type,
-        created_at, edited_at, is_deleted, status, recalled_at,
+        created_at, edited_at, is_deleted, status, recalled_at, reply_to_id,
         sender:jkb_users(id, display_name, avatar_url)
       `)
       .eq('conversation_id', conversationId)
@@ -225,8 +231,35 @@ export const chatService = {
     const { data, error } = await query
     if (error) throw error
 
-    // 反转使按时间正序
-    return (data as any as ChatMessageWithSender[]).reverse()
+    const messages = (data as any as ChatMessageWithSender[]).reverse()
+
+    // 批量获取引用的消息
+    const replyIds = messages.filter(m => m.reply_to_id).map(m => m.reply_to_id!)
+    if (replyIds.length > 0) {
+      const { data: quotedRows } = await supabase
+        .from('chat_messages')
+        .select(`
+          id, content, message_type, sender_id,
+          sender:jkb_users(display_name)
+        `)
+        .in('id', replyIds)
+      if (quotedRows) {
+        const quotedMap = new Map(quotedRows.map((q: any) => [q.id, {
+          id: q.id,
+          content: q.content,
+          message_type: q.message_type,
+          sender_id: q.sender_id,
+          sender_name: q.sender?.display_name || null,
+        }]))
+        for (const msg of messages) {
+          if (msg.reply_to_id) {
+            msg.quoted_message = quotedMap.get(msg.reply_to_id) || null
+          }
+        }
+      }
+    }
+
+    return messages
   },
 
   // 发送消息
@@ -234,7 +267,8 @@ export const chatService = {
     conversationId: string,
     senderId: string,
     content: string,
-    messageType: 'text' | 'system' = 'text'
+    messageType: 'text' | 'system' = 'text',
+    replyToId?: string
   ): Promise<ChatMessage> => {
     // 检查是否被禁言
     if (messageType === 'text') {
@@ -242,14 +276,19 @@ export const chatService = {
       if (isMuted) throw new Error('你已被禁言，无法发送消息')
     }
 
+    const insertData: any = {
+      conversation_id: conversationId,
+      sender_id: senderId,
+      content: content.trim(),
+      message_type: messageType,
+    }
+    if (replyToId) {
+      insertData.reply_to_id = replyToId
+    }
+
     const { data, error } = await supabase
       .from('chat_messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_id: senderId,
-        content: content.trim(),
-        message_type: messageType,
-      })
+      .insert(insertData)
       .select()
       .single()
 
@@ -316,6 +355,82 @@ export const chatService = {
 
   // 解析图片消息内容
   parseImageContent: (content: string): { url: string; key: string; width: number; height: number } | null => {
+    try {
+      return JSON.parse(content)
+    } catch {
+      return null
+    }
+  },
+
+  // ====== 文件消息 ======
+
+  // 发送文件消息
+  sendFileMessage: async (
+    conversationId: string,
+    senderId: string,
+    fileInfo: {
+      fileName: string
+      fileSize: number
+      fileType: string
+      fileExt: string
+      url: string
+      key: string
+      category: string
+    }
+  ): Promise<ChatMessage> => {
+    const isMuted = await chatService.checkMuted(senderId, conversationId)
+    if (isMuted) throw new Error('你已被禁言，无法发送消息')
+
+    const content = JSON.stringify({
+      fileName: fileInfo.fileName,
+      fileSize: fileInfo.fileSize,
+      fileType: fileInfo.fileType,
+      fileExt: fileInfo.fileExt,
+      url: fileInfo.url,
+      key: fileInfo.key,
+      category: fileInfo.category,
+      expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3天后过期
+    })
+
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        content,
+        message_type: 'file',
+        status: 'sent',
+      })
+      .select()
+      .single()
+
+    if (error) throw error
+
+    await supabase
+      .from('chat_conversations')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', conversationId)
+
+    await supabase
+      .from('chat_participants')
+      .update({ last_read_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .eq('user_id', senderId)
+
+    return data
+  },
+
+  // 解析文件消息内容
+  parseFileContent: (content: string): {
+    fileName: string
+    fileSize: number
+    fileType: string
+    fileExt: string
+    url: string
+    key: string
+    category: string
+    expires_at: string
+  } | null => {
     try {
       return JSON.parse(content)
     } catch {
@@ -674,5 +789,171 @@ export const chatService = {
       .map(m => m.conversation_id!)
 
     return { is_globally_muted: globalMuted, group_mutes: groupMutes }
+  },
+
+  // ====== 消息搜索 ======
+
+  // 全文搜索用户参与会话中的消息
+  searchMessages: async (userId: string, keyword: string): Promise<Array<{
+    message: ChatMessage & { sender: { id: string; display_name: string | null; avatar_url: string | null } }
+    conversation: { id: string; type: string; name: string | null }
+  }>> => {
+    if (!keyword.trim()) return []
+    const searchTerm = `%${keyword.trim()}%`
+
+    // 先获取用户参与的所有会话ID
+    const { data: myParticipants } = await supabase
+      .from('chat_participants')
+      .select('conversation_id')
+      .eq('user_id', userId)
+
+    if (!myParticipants || myParticipants.length === 0) return []
+    const convIds = myParticipants.map(p => p.conversation_id)
+
+    // 搜索消息
+    const { data: messages, error } = await supabase
+      .from('chat_messages')
+      .select(`
+        id, conversation_id, sender_id, content, message_type, status,
+        created_at, edited_at, is_deleted, recalled_at, reply_to_id,
+        sender:jkb_users(id, display_name, avatar_url)
+      `)
+      .in('conversation_id', convIds)
+      .eq('is_deleted', false)
+      .ilike('content', searchTerm)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) throw error
+
+    // 获取关联会话信息
+    const { data: conversations } = await supabase
+      .from('chat_conversations')
+      .select('id, type, name')
+      .in('id', convIds)
+    const convMap = new Map((conversations || []).map(c => [c.id, c]))
+
+    return (messages || []).map(msg => ({
+      message: msg as any,
+      conversation: convMap.get(msg.conversation_id) || { id: msg.conversation_id, type: 'direct', name: null },
+    }))
+  },
+
+  // ====== 会话置顶 ======
+
+  // 置顶会话
+  pinConversation: async (conversationId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('chat_participants')
+      .update({ pinned_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+    if (error) throw error
+  },
+
+  // 取消置顶
+  unpinConversation: async (conversationId: string, userId: string): Promise<void> => {
+    const { error } = await supabase
+      .from('chat_participants')
+      .update({ pinned_at: null })
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+    if (error) throw error
+  },
+
+  // ====== 已读回执 ======
+
+  // 批量标记会话中的消息为已读
+  markConversationMessagesAsRead: async (conversationId: string, userId: string): Promise<void> => {
+    // 获取当前会话中不是自己发送的未读消息
+    const { data: unreadMessages } = await supabase
+      .from('chat_messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .neq('sender_id', userId)
+      .neq('message_type', 'system')
+      .neq('status', 'read')
+      .is('recalled_at', null)
+      .eq('is_deleted', false)
+      .limit(100)
+
+    if (!unreadMessages || unreadMessages.length === 0) return
+
+    const messageIds = unreadMessages.map(m => m.id)
+
+    // 1. 写入已读记录
+    const reads = messageIds.map(id => ({
+      message_id: id,
+      user_id: userId,
+      read_at: new Date().toISOString(),
+    }))
+    await supabase.from('chat_message_reads').upsert(reads, { onConflict: 'message_id,user_id' })
+
+    // 2. 查询每条消息是否所有人都已读（仅对私聊有效）
+    for (const id of messageIds) {
+      // 获取该会话的参与者数量（排除系统用户和发送者自己）
+      const { data: participants } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('conversation_id', conversationId)
+        .neq('user_id', userId) // 不包含当前阅读者
+      if (!participants) continue
+
+      const otherUserIds = participants.map(p => p.user_id)
+      // 获取其他参与者的已读记录
+      const { data: otherReads } = await supabase
+        .from('chat_message_reads')
+        .select('user_id')
+        .eq('message_id', id)
+        .in('user_id', otherUserIds)
+
+      // 如果其他所有人都已读，更新消息状态为 read
+      const totalOthers = otherUserIds.length
+      const readOthers = (otherReads || []).length
+      if (totalOthers > 0 && readOthers >= totalOthers) {
+        await supabase
+          .from('chat_messages')
+          .update({ status: 'read' })
+          .eq('id', id)
+      } else {
+        // 至少标记为 sent（如果有至少一个人读了）
+        // 暂不更新 status，保持 sent
+      }
+    }
+  },
+
+  // 批量查询消息的已读人数
+  getMessagesReadCounts: async (messageIds: string[]): Promise<Record<string, number>> => {
+    if (messageIds.length === 0) return {}
+    const { data } = await supabase
+      .from('chat_message_reads')
+      .select('message_id')
+      .in('message_id', messageIds)
+
+    const counts: Record<string, number> = {}
+    const ids = new Set(messageIds)
+    ids.forEach(id => { counts[id] = 0 })
+    ;(data || []).forEach(r => {
+      counts[r.message_id] = (counts[r.message_id] || 0) + 1
+    })
+    return counts
+  },
+
+  // 获取消息已读用户详情（含用户名）
+  getMessageReadUsersWithName: async (messageId: string): Promise<Array<{ user_id: string; display_name: string | null; read_at: string }>> => {
+    const { data, error } = await supabase
+      .from('chat_message_reads')
+      .select(`
+        user_id, read_at,
+        user:jkb_users(display_name)
+      `)
+      .eq('message_id', messageId)
+
+    if (error) throw error
+    return (data || []).map((r: any) => ({
+      user_id: r.user_id,
+      display_name: r.user?.display_name || null,
+      read_at: r.read_at,
+    }))
   },
 }

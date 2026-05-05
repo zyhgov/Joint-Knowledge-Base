@@ -8,16 +8,169 @@ import { useAuthStore } from '@/store/authStore'
 import { PaperAirplaneIcon, StopIcon } from '@heroicons/react/24/solid'
 import {
   PlusIcon, TrashIcon, ChatBubbleLeftRightIcon,
-  Bars3Icon, XMarkIcon,
+  Bars3Icon, XMarkIcon, ClipboardDocumentIcon, ArrowPathIcon, CheckIcon,
 } from '@heroicons/react/24/outline'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
 import { toast } from 'react-hot-toast'
+import mermaid from 'mermaid'
+
+// 初始化 Mermaid
+mermaid.initialize({
+  startOnLoad: false,
+  theme: 'default',
+  securityLevel: 'loose',
+})
 
 const DOUBAO_AVATAR = '/doubao/doubao_avatar.png'
 
-function ChatBubble({ message }: { message: ChatMessage }) {
+// ===== 子组件：Mermaid 渲染器 =====
+function MermaidBlock({ code }: { code: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const id = useRef(`mermaid-${Math.random().toString(36).slice(2, 9)}`).current
+
+  useEffect(() => {
+    const render = async () => {
+      if (!ref.current) return
+      try {
+        const { svg } = await mermaid.render(id, code)
+        if (ref.current) ref.current.innerHTML = svg
+      } catch (e) {
+        console.error('Mermaid render error:', e)
+      }
+    }
+    render()
+  }, [code, id])
+
+  return (
+    <div className="my-3 overflow-x-auto">
+      <div ref={ref} className="mermaid" />
+    </div>
+  )
+}
+
+// ===== 子组件：代码块（含复制按钮） =====
+function CodeBlock({ className, children, inline }: { className?: string; children: React.ReactNode; inline?: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const match = /language-(\w+)/.exec(className || '')
+  const codeStr = String(children).replace(/\n$/, '')
+
+  // Mermaid 图表
+  if (match && match[1] === 'mermaid') {
+    return <MermaidBlock code={codeStr} />
+  }
+
+  if (inline || !match) {
+    return (
+      <code className="bg-muted text-pink-600 dark:text-pink-400 px-1.5 py-0.5 rounded text-xs">
+        {children}
+      </code>
+    )
+  }
+
+  const lang = match[1]
+  const highlighted = hljs.getLanguage(lang)
+    ? hljs.highlight(codeStr, { language: lang }).value
+    : codeStr
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(codeStr)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  return (
+    <div className="relative group my-3 rounded-xl overflow-hidden border border-border">
+      <div className="flex items-center justify-between px-4 py-1.5 text-xs text-muted-foreground bg-muted/60 border-b border-border">
+        <span>{lang}</span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 px-2 py-1 rounded-md hover:bg-background/80 transition-colors"
+        >
+          {copied ? (
+            <><CheckIcon className="h-3.5 w-3.5 text-green-500" /> 已复制</>
+          ) : (
+            <><ClipboardDocumentIcon className="h-3.5 w-3.5" /> 复制</>
+          )}
+        </button>
+      </div>
+      <pre className="!mt-0 !rounded-none overflow-x-auto p-4 bg-[#f6f8fa] dark:bg-[#0d1117] text-sm leading-relaxed">
+        <code className={className} dangerouslySetInnerHTML={{ __html: highlighted }} />
+      </pre>
+    </div>
+  )
+}
+
+// ===== 子组件：AI 回复操作按钮（复制 / 重新生成） =====
+function ResponseActions({ content, onRegenerate }: { content: string; onRegenerate?: () => void }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopied(true)
+      toast.success('已复制到剪贴板')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('复制失败')
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1 mt-2 opacity-100 transition-opacity">
+      <button
+        onClick={handleCopy}
+        className="flex items-center gap-1 px-2.5 py-1 text-xs text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+        title="复制回复"
+      >
+        {copied ? (
+          <CheckIcon className="h-3.5 w-3.5 text-green-500" />
+        ) : (
+          <ClipboardDocumentIcon className="h-3.5 w-3.5" />
+        )}
+        {copied ? '已复制' : '复制'}
+      </button>
+      {onRegenerate && (
+        <button
+          onClick={onRegenerate}
+          className="flex items-center gap-1 px-2.5 py-1 text-xs text-muted-foreground bg-muted/50 hover:bg-muted rounded-lg transition-colors"
+          title="重新生成"
+        >
+          <ArrowPathIcon className="h-3.5 w-3.5" />
+          重新生成
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ===== 骨架文字加载动画 =====
+function ThinkingSkeleton() {
+  return (
+    <div className="flex mb-3">
+      <img src={DOUBAO_AVATAR} alt="豆包" className="flex-shrink-0 w-8 h-8 rounded-full mr-3 mt-0.5 object-cover shadow-sm" />
+      <div className="relative overflow-hidden bg-card border border-border rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+        {/* 左右扫光效果 */}
+        <div className="absolute inset-0 -translate-x-full animate-thinking-shimmer bg-gradient-to-r from-transparent via-white/30 dark:via-white/10 to-transparent" />
+        <div className="relative z-10 flex items-center gap-1.5">
+          <span className="text-sm text-muted-foreground">豆包正在思考</span>
+          <span className="flex gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/40 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ===== 聊天气泡 =====
+function ChatBubble({ message, onRegenerate }: { message: ChatMessage; onRegenerate?: () => void }) {
   const isUser = message.role === 'user'
+
   if (isUser) {
     return (
       <div className="flex justify-end mb-3">
@@ -27,32 +180,37 @@ function ChatBubble({ message }: { message: ChatMessage }) {
       </div>
     )
   }
+
+  // 空内容 = 加载中（流式还没到）
+  if (message.content === '') {
+    return <ThinkingSkeleton />
+  }
+
   return (
-    <div className="flex mb-3">
+    <div className="flex mb-3 group">
       <img src={DOUBAO_AVATAR} alt="豆包" className="flex-shrink-0 w-8 h-8 rounded-full mr-3 mt-0.5 object-cover shadow-sm" />
-      <div className="max-w-[72%] bg-white border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed prose prose-sm max-w-none prose-pre:bg-[#f6f8fa] prose-pre:border prose-pre:border-gray-200 prose-code:text-pink-600 prose-code:bg-gray-100 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:rounded-xl prose-pre:p-4 shadow-sm">
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
-          code({ className, children, ...props }) {
-            const match = /language-(\w+)/.exec(className || '')
-            const codeStr = String(children).replace(/\n$/, '')
-            if (match) {
-              const lang = match[1]
-              const highlighted = hljs.getLanguage(lang) ? hljs.highlight(codeStr, { language: lang }).value : codeStr
+     <div className="max-w-[72%] min-w-0 bg-card border border-border rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm leading-relaxed prose prose-sm max-w-none dark:prose-invert prose-pre:bg-[#f6f8fa] dark:prose-pre:bg-[#0d1117] prose-pre:border prose-pre:border-border prose-code:text-pink-600 dark:prose-code:text-pink-400 prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-pre:rounded-xl prose-pre:p-0 shadow-sm">
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          components={{
+            code({ className, children, ...props }) {
               return (
-                <div className="relative group">
-                  <div className="flex items-center justify-between px-4 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-t-xl border-b border-gray-200"><span>{lang}</span></div>
-                  <pre className="!mt-0 !rounded-t-none"><code className={className} dangerouslySetInnerHTML={{ __html: highlighted }} {...(props as any)} /></pre>
-                </div>
+                <CodeBlock className={className}>
+                  {children}
+                </CodeBlock>
               )
-            }
-            return <code className={className} {...(props as any)}>{children}</code>
-          },
-        }}>{message.content}</ReactMarkdown>
-        {message.content === '' && <span className="inline-block w-2 h-4 bg-blue-500 animate-pulse" />}
+            },
+            pre({ children }) {
+              return <>{children}</>
+            },
+          }}
+        >{message.content}</ReactMarkdown>
+        <ResponseActions content={message.content} onRegenerate={onRegenerate} />
       </div>
     </div>
   )
 }
+
 
 export default function AIChat() {
   const { user: currentUser } = useAuthStore()
@@ -193,6 +351,23 @@ ${knowledgeBase}` } : null
 
   const handleStop = useCallback(() => { abortController?.abort(); setLoading(false); setAbortController(null) }, [abortController])
   const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(input) } }
+
+  // 重新生成：移除最后一条 AI 回复，重新发送
+  const handleRegenerate = useCallback(async () => {
+    if (loading || messages.length < 2) return
+    // 找到最后一个用户消息
+    let lastUserIdx = -1
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') { lastUserIdx = i; break }
+    }
+    if (lastUserIdx === -1) return
+    const lastUserMsg = messages[lastUserIdx]
+    // 移除最后一条 AI 回复
+    setMessages((prev) => prev.slice(0, -1))
+    // 重新发送
+    await handleSend(lastUserMsg.content)
+  }, [messages, loading, handleSend])
+
   const hasMessages = messages.length > 0
 
   const handleClickTitle = (conv: AIChatConversation) => {
@@ -204,7 +379,7 @@ ${knowledgeBase}` } : null
   return (
     <div className="h-full flex bg-transparent">
       {/* ===== 历史侧边栏 ===== */}
-      <div className={`flex-shrink-0 border-r border-border bg-white/40 backdrop-blur-sm transition-all duration-300 ease-in-out overflow-hidden ${showSidebar ? 'w-60' : 'w-0'}`}>
+      <div className={`flex-shrink-0 border-r border-border bg-card/40 backdrop-blur-sm transition-all duration-300 ease-in-out overflow-hidden ${showSidebar ? 'w-60' : 'w-0'}`}>
         <div className="w-60 h-full flex flex-col">
           <div className="flex items-center justify-between px-4 h-14 border-b border-border">
             <span className="text-sm font-semibold text-foreground">历史对话</span>
@@ -229,13 +404,13 @@ ${knowledgeBase}` } : null
                     onBlur={() => handleSaveTitle(conv.id)}
                     onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') handleSaveTitle(conv.id); if (e.key === 'Escape') setEditingTitleId(null) }}
                     onClick={(e) => e.stopPropagation()}
-                    className="flex-1 text-sm px-1 py-0.5 border border-[#007aff] rounded bg-white focus:outline-none"
+                    className="flex-1 text-sm px-1 py-0.5 border border-[#007aff] rounded bg-card focus:outline-none"
                   />
                 ) : (
                   <span onClick={(e) => { e.stopPropagation(); handleClickTitle(conv) }} className="truncate flex-1 cursor-text">{conv.title}</span>
                 )}
                 <button onClick={(e) => handleDeleteConversation(e, conv.id)}
-                  className="p-1 rounded hover:bg-red-50 hover:text-red-500 opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity" title="删除对话">
+                  className="p-1 rounded hover:bg-destructive/10 hover:text-destructive opacity-0 group-hover:opacity-100 flex-shrink-0 transition-opacity" title="删除对话">
                   <TrashIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -248,7 +423,7 @@ ${knowledgeBase}` } : null
       {/* ===== 主聊天区域 ===== */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* 顶部栏 */}
-        <div className="flex items-center gap-2 px-4 h-14 border-b border-border bg-white/40 backdrop-blur-sm flex-shrink-0">
+        <div className="flex items-center gap-2 px-4 h-14 border-b border-border bg-card/40 backdrop-blur-sm flex-shrink-0">
           {!showSidebar && (
             <button onClick={() => setShowSidebar(true)} className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground"><Bars3Icon className="h-4 w-4" /></button>
           )}
@@ -263,7 +438,7 @@ ${knowledgeBase}` } : null
           {isBanned ? (
             <div className="h-full flex items-center justify-center">
               <div className="text-center max-w-sm">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-50 flex items-center justify-center"><XMarkIcon className="h-8 w-8 text-red-400" /></div>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 flex items-center justify-center"><XMarkIcon className="h-8 w-8 text-destructive" /></div>
                 <h3 className="text-base font-semibold text-foreground mb-2">AI 功能已被限制</h3>
                 <p className="text-sm text-muted-foreground">{banReason || '请联系管理员了解详情'}</p>
               </div>
@@ -322,7 +497,7 @@ ${knowledgeBase}` } : null
                             <div className={`flex gap-2 ${dirs[ri] === 'left' ? 'a-scroll-l' : 'a-scroll-r'}`} style={{ width: 'max-content' }}>
                               {Array.from({ length: N }, () => rowItems).flat().map((q: any, qi: number) => (
                                 <button key={`${ri}-${qi}`} onClick={() => handleSend(q.question)}
-                                  className="whitespace-nowrap flex-shrink-0 px-4 py-2 text-sm text-muted-foreground bg-white border border-gray-200 rounded-xl hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all leading-relaxed">{q.question}</button>
+                                  className="whitespace-nowrap flex-shrink-0 px-4 py-2 text-sm text-muted-foreground bg-card border border-border rounded-xl hover:border-blue-300 dark:hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm transition-all leading-relaxed">{q.question}</button>
                               ))}
                             </div>
                           </div>
@@ -336,7 +511,7 @@ ${knowledgeBase}` } : null
             </div>
           ) : (
             <div className="max-w-3xl mx-auto">
-              {messages.map((msg) => (<ChatBubble key={msg.id} message={msg} />))}
+              {messages.map((msg) => (<ChatBubble key={msg.id} message={msg} onRegenerate={msg.role === 'assistant' && msg.content ? handleRegenerate : undefined} />))}
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -344,21 +519,21 @@ ${knowledgeBase}` } : null
 
         {/* 输入栏 */}
         {!isBanned && activeConvId && (
-          <div className="flex-shrink-0 bg-white/60 backdrop-blur-sm border-t border-border px-4 lg:px-6 py-3">
+          <div className="flex-shrink-0 bg-card/60 backdrop-blur-sm border-t border-border px-4 lg:px-6 py-3">
             <div className="max-w-3xl mx-auto">
-              <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 shadow-sm focus-within:border-blue-400 focus-within:shadow-md transition-all">
+              <div className="flex items-center gap-2 bg-card border border-border rounded-2xl px-3 shadow-sm focus-within:border-blue-400 focus-within:shadow-md transition-all">
                 <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
                   placeholder="输入消息，Enter 发送" rows={1}
-                  className="flex-1 outline-none resize-none text-sm text-foreground bg-transparent placeholder:text-gray-400 max-h-28 leading-6 py-3" disabled={loading}
+                  className="flex-1 outline-none resize-none text-sm text-foreground bg-transparent placeholder:text-muted-foreground max-h-28 leading-6 py-3" disabled={loading}
                 />
                 {loading ? (
                   <button onClick={handleStop} className="flex-shrink-0 w-10 h-10 rounded-xl bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-colors shadow-sm" title="停止生成"><StopIcon className="h-4 w-4" /></button>
                 ) : (
                   <button onClick={() => handleSend(input)} disabled={!input.trim()}
-                    className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#007aff] hover:bg-blue-600 disabled:bg-gray-200 text-white flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm" title="发送"><PaperAirplaneIcon className="h-4 w-4" /></button>
+                    className="flex-shrink-0 w-10 h-10 rounded-xl bg-[#007aff] hover:bg-blue-600 disabled:bg-muted text-white flex items-center justify-center transition-colors disabled:cursor-not-allowed shadow-sm" title="发送"><PaperAirplaneIcon className="h-4 w-4" /></button>
                 )}
               </div>
-              <p className="text-[11px] text-gray-400/70 text-center mt-1.5">AI 回复仅供参考，请核实重要信息</p>
+              <p className="text-[11px] text-muted-foreground/70 text-center mt-1.5">AI 回复仅供参考，请核实重要信息</p>
             </div>
           </div>
         )}

@@ -6,6 +6,7 @@
 const MAX_WIDTH = 1920
 const MAX_HEIGHT = 1920
 const QUALITY = 0.8
+const MAX_SIZE_BYTES = 1 * 1024 * 1024 // 1MB
 
 export interface CompressResult {
   blob: Blob
@@ -19,41 +20,18 @@ export interface CompressResult {
 /**
  * 压缩图片并转换为最佳格式
  * 优先级：AVIF > WebP > JPEG
+ * 若压缩后仍超过 MAX_SIZE_BYTES，自动降低质量重试
  */
-export async function compressImage(file: File): Promise<CompressResult> {
-  // 读取文件为 ImageData
-  const img = await loadImage(file)
-  const { width, height } = getScaledDimensions(img.width, img.height)
+export async function compressImage(file: File, maxSizeBytes = MAX_SIZE_BYTES): Promise<CompressResult> {
+  let quality = QUALITY
 
-  // 创建 canvas 绘制缩放的图片
-  const canvas = document.createElement('canvas')
-  canvas.width = width
-  canvas.height = height
-  const ctx = canvas.getContext('2d')!
-  ctx.drawImage(img, 0, 0, width, height)
-
-  // 检测支持的格式
-  const format = await detectBestFormat()
-
-  // 转为 blob
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => {
-        if (b) resolve(b)
-        else reject(new Error('图片压缩失败'))
-      },
-      `image/${format}`,
-      QUALITY
-    )
-  })
-
-  return {
-    blob,
-    url: URL.createObjectURL(blob),
-    width,
-    height,
-    format,
-    size: blob.size,
+  while (true) {
+    const result = await compressImageWithQuality(file, quality)
+    if (result.size <= maxSizeBytes || quality <= 0.1) {
+      return result
+    }
+    // 降低质量重试
+    quality = Math.max(quality - 0.15, 0.1)
   }
 }
 
@@ -62,9 +40,10 @@ export async function compressImage(file: File): Promise<CompressResult> {
  */
 export async function compressToFile(
   file: File,
-  fileName?: string
+  fileName?: string,
+  maxSizeBytes = MAX_SIZE_BYTES
 ): Promise<File> {
-  const result = await compressImage(file)
+  const result = await compressImage(file, maxSizeBytes)
   const ext = result.format === 'jpeg' ? 'jpg' : result.format
   const name = fileName || file.name.replace(/\.[^.]+$/, `.${ext}`)
   return new File([result.blob], name, {
@@ -87,6 +66,45 @@ function loadImage(file: File): Promise<HTMLImageElement> {
     }
     img.src = url
   })
+}
+
+/**
+ * 以指定质量压缩图片（内部函数）
+ */
+async function compressImageWithQuality(
+  file: File,
+  quality: number
+): Promise<CompressResult> {
+  const img = await loadImage(file)
+  const { width, height } = getScaledDimensions(img.width, img.height)
+
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext('2d')!
+  ctx.drawImage(img, 0, 0, width, height)
+
+  const format = await detectBestFormat()
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (b) => {
+        if (b) resolve(b)
+        else reject(new Error('图片压缩失败'))
+      },
+      `image/${format}`,
+      quality
+    )
+  })
+
+  return {
+    blob,
+    url: URL.createObjectURL(blob),
+    width,
+    height,
+    format,
+    size: blob.size,
+  }
 }
 
 // 计算缩放后的尺寸（保持宽高比）

@@ -20,3 +20,8 @@ create table if not exists chat_message_reads (
 );
 create index if not exists idx_message_reads_message on chat_message_reads(message_id);
 create index if not exists idx_message_reads_user on chat_message_reads(user_id);
+
+-- 4. 消息表新增回复引用字段
+ alter table chat_messages add column if not exists reply_to_id uuid
+   references chat_messages(id) on delete set null;
+create index if not exists idx_messages_reply_to on chat_messages(reply_to_id);

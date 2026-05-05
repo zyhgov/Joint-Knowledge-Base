@@ -340,7 +340,7 @@ export const TRANSFER_FAN_STATUS_COLORS: Record<string, string> = {
 // ====== 站内聊天系统 ======
 
 export type ChatConversationType = 'direct' | 'group'
-export type ChatMessageType = 'text' | 'system' | 'image'
+export type ChatMessageType = 'text' | 'system' | 'image' | 'file'
 export type ChatMessageStatus = 'sending' | 'sent' | 'failed' | 'read'
 
 // 会话
@@ -363,6 +363,7 @@ export interface ChatParticipant {
   user_id: string
   last_read_at: string | null
   is_muted: boolean
+  pinned_at: string | null
   joined_at: string
 }
 
@@ -378,6 +379,7 @@ export interface ChatMessage {
   edited_at: string | null
   is_deleted: boolean
   recalled_at: string | null
+  reply_to_id: string | null
 }
 
 // 禁言
@@ -408,6 +410,7 @@ export interface ChatMessageRead {
 
 // 带关联数据的会话（前端用）
 export interface ChatConversationWithDetails extends ChatConversation {
+  pinned_at: string | null
   participants: Array<{
     user: {
       id: string
@@ -417,6 +420,7 @@ export interface ChatConversationWithDetails extends ChatConversation {
     }
     last_read_at: string | null
     is_muted: boolean
+    pinned_at: string | null
   }>
   last_message: {
     content: string
@@ -434,6 +438,14 @@ export interface ChatMessageWithSender extends ChatMessage {
     display_name: string | null
     avatar_url: string | null
   }
+  quoted_message?: {
+    id: string
+    content: string
+    message_type: string
+    sender_id: string
+    sender_name: string | null
+  } | null
+  read_count?: number
 }
 
 // 禁言带操作者信息
