@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { cryptoService } from './crypto'
+import { systemAuditService } from './systemAuditService'
 import { JkbUserProfile } from '@/types/database'
 
 // 从 RBAC 角色推导出 user.role 和 user.role_name
@@ -139,7 +140,7 @@ export const authService = {
       }
 
       const token = cryptoService.generateToken()
-      const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
 
       const { error: sessionError } = await supabase
         .from('jkb_sessions')
@@ -157,6 +158,14 @@ export const authService = {
         .from('jkb_users')
         .update({ last_login_at: new Date().toISOString() })
         .eq('id', userData.id)
+
+      // 异步记录登录日志（不阻塞登录流程）
+      systemAuditService.logLogin(
+        userData.id,
+        userData.display_name,
+        '',  // IP 由前端在页面层补充
+        navigator.userAgent
+      ).catch(() => {})
 
       // 获取 RBAC 角色和权限
       const rbacRoles = await getUserRbacRoles(userData.id)

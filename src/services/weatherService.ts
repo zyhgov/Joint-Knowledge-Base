@@ -14,9 +14,29 @@ export interface WeatherData {
   winddirection: string // 风向
   windpower: string     // 风力
   humidity: string      // 湿度
+  uv: string            // 紫外线强度指数
+  uvLevel: string       // 紫外线等级描述
   reporttime: string    // 数据发布时间
   city: string          // 城市名（中文）
   adcode: string
+}
+
+// 紫外线强度等级描述
+const UV_LEVELS: Array<{ min: number; max: number; label: string; desc: string }> = [
+  { min: 0, max: 2, label: '最弱', desc: '无需防护' },
+  { min: 2, max: 5, label: '较弱', desc: '适当防护' },
+  { min: 5, max: 7, label: '中等', desc: '注意防护' },
+  { min: 7, max: 10, label: '强', desc: '加强防护' },
+  { min: 10, max: 16, label: '极强', desc: '避免外出' },
+]
+
+function getUvLevel(uv: string): string {
+  const num = parseInt(uv, 10)
+  if (isNaN(num)) return '未知'
+  for (const level of UV_LEVELS) {
+    if (num >= level.min && num < level.max) return level.label
+  }
+  return '极强'
 }
 
 // 英文城市名 → { 中文名, adcode } 映射（常用城市）
@@ -183,35 +203,60 @@ export async function fetchWeather(location: LocationInfo): Promise<WeatherData 
     return null
   }
 
+  // 先尝试 all（含紫外线），失败则回退到 base
+  let livesData: any = null
+  let uv = '--'
+
   try {
-    const url = `https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${entry.adcode}&extensions=base&output=JSON`
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
-    const data = await res.json()
+    const allUrl = `https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${entry.adcode}&extensions=all&output=JSON`
+    const allRes = await fetch(allUrl, { signal: AbortSignal.timeout(8000) })
+    const allData = await allRes.json()
 
-    console.debug('[WeatherService] 高德天气返回:', data)
-
-    if (data.status !== '1' || !data.lives?.length) {
-      throw new Error(data.info || '天气查询失败')
+    if (allData.status === '1' && allData.lives?.length) {
+      livesData = allData.lives[0]
+      if (allData.forecasts?.[0]?.casts?.[0]?.day_uv) {
+        uv = allData.forecasts[0].casts[0].day_uv
+      }
     }
-
-    const live = data.lives[0]
-    const weather: WeatherData = {
-      weather: live.weather || '未知',
-      temperature: live.temperature || '--',
-      winddirection: live.winddirection || '--',
-      windpower: live.windpower || '--',
-      humidity: live.humidity || '--',
-      reporttime: live.reporttime || '',
-      city: live.city || entry.cn,
-      adcode: live.adcode || entry.adcode,
-    }
-
-    cachedWeather = { data: weather, time: Date.now() }
-    return weather
+    console.debug('[WeatherService] 高德天气(all)返回:', allData)
   } catch (err) {
-    console.warn('[WeatherService] 天气查询失败:', err)
-    return null
+    console.warn('[WeatherService] all 请求失败，回退到 base:', err)
   }
+
+  // all 失败时用 base 重试
+  if (!livesData) {
+    try {
+      const baseUrl = `https://restapi.amap.com/v3/weather/weatherInfo?key=${AMAP_KEY}&city=${entry.adcode}&extensions=base&output=JSON`
+      const baseRes = await fetch(baseUrl, { signal: AbortSignal.timeout(8000) })
+      const baseData = await baseRes.json()
+
+      console.debug('[WeatherService] 高德天气(base)返回:', baseData)
+
+      if (baseData.status !== '1' || !baseData.lives?.length) {
+        throw new Error(baseData.info || '天气查询失败')
+      }
+      livesData = baseData.lives[0]
+    } catch (err) {
+      console.warn('[WeatherService] 天气查询失败:', err)
+      return null
+    }
+  }
+
+  const weather: WeatherData = {
+    weather: livesData.weather || '未知',
+    temperature: livesData.temperature || '--',
+    winddirection: livesData.winddirection || '--',
+    windpower: livesData.windpower || '--',
+    humidity: livesData.humidity || '--',
+    uv,
+    uvLevel: getUvLevel(uv),
+    reporttime: livesData.reporttime || '',
+    city: livesData.city || entry.cn,
+    adcode: livesData.adcode || entry.adcode,
+  }
+
+  cachedWeather = { data: weather, time: Date.now() }
+  return weather
 }
 
 /** 清除天气缓存 */

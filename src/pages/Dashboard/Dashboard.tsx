@@ -338,7 +338,7 @@ export default function Dashboard() {
 
             {todayInfo && (
               <p className="text-white/75 mt-2 text-sm sm:text-base leading-relaxed drop-shadow-sm">
-                今天是{todayInfo.gregorian}，<br />今天也是高效工作的一天。让我们一起看看最新的动态。
+                今天是{todayInfo.gregorian}，<br />让我们一起看看最新的动态。
               </p>
             )}
           </div>

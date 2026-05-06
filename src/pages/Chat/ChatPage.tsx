@@ -17,7 +17,7 @@ import ContactsPanel from './ContactsPanel'
 import ChatWindow from './ChatWindow'
 import CreateGroupDialog from './CreateGroupDialog'
 import MessageSearchDialog from './MessageSearchDialog'
-import { ChatBubbleLeftRightIcon, PlusIcon, UsersIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { ChatBubbleLeftRightIcon, PlusIcon, UsersIcon, MagnifyingGlassIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
 
 type TabType = 'contacts' | 'conversations'
 
@@ -30,6 +30,7 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(true)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [presenceMap, setPresenceMap] = useState<Record<string, boolean>>({})
+  const [bannedUsers, setBannedUsers] = useState<Set<string>>(new Set())
   const [isMobile, setIsMobile] = useState(false)
   const [deptMap, setDeptMap] = useState<Record<string, string>>({})
   const [showSearch, setShowSearch] = useState(false)
@@ -49,6 +50,16 @@ export default function ChatPage() {
     try {
       const convs = await chatService.getMyConversations(user.id)
       setConversations(convs)
+
+      // 加载所有被禁言用户（全局禁言）
+      chatService.getMutes().then(mutes => {
+        const banned = new Set<string>()
+        const now = new Date().toISOString()
+        mutes
+          .filter(m => !m.conversation_id && (!m.expires_at || m.expires_at > now))
+          .forEach(m => banned.add(m.user_id))
+        setBannedUsers(banned)
+      }).catch(() => {})
     } catch (err) {
       console.error('加载会话失败:', err)
     } finally {
@@ -390,6 +401,17 @@ export default function ChatPage() {
                               </svg>
                             )}
                             {getConvDisplayName(conv)}
+                            {conv.type === 'direct' && (() => {
+                              const other = conv.participants.find(p => p.user.id !== user?.id)
+                              if (other && bannedUsers.has(other.user.id)) {
+                                return (
+                                  <span className="inline-flex items-center gap-0.5 text-xs text-red-500 font-normal" title="该用户已被封禁">
+                                    <ExclamationCircleIcon className="h-4 w-4 text-red-500" />
+                                  </span>
+                                )
+                              }
+                              return null
+                            })()}
                           </span>
                           {/* 时间 + 置顶按钮 合并在一行右侧 */}
                           <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -495,9 +517,13 @@ function formatTime(dateStr: string): string {
   const date = new Date(dateStr)
   if (isNaN(date.getTime())) return ''
   const now = new Date()
-  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24))
 
-  if (diffDays <= 0) {
+  // 用日历日期比较，避免跨天但时间差不足24小时导致的错误
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const msgDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((today.getTime() - msgDate.getTime()) / (1000 * 60 * 60 * 24))
+
+  if (diffDays === 0) {
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   } else if (diffDays === 1) {
     return '昨天'

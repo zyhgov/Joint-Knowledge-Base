@@ -31,6 +31,7 @@ export default function LocationInfo() {
   const [weather, setWeather] = useState<WeatherData | null>(null)
   const [weatherLoading, setWeatherLoading] = useState(false)
   const prevProxyRef = useRef<boolean | null>(null)
+  const dialogFirstOpened = useRef(false)
 
   // ===== 获取天气 =====
   const doFetchWeather = async (loc: LocationInfoData) => {
@@ -143,7 +144,17 @@ export default function LocationInfo() {
       </button>
 
       {/* ===== 详细信息弹窗 ===== */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open)
+        if (open && !dialogFirstOpened.current) {
+          dialogFirstOpened.current = true
+          // 首次打开弹窗时确保天气已加载
+          if (!weather && !weatherLoading && location) {
+            clearWeatherCache()
+            doFetchWeather(location)
+          }
+        }
+      }}>
         <DialogContent className="max-w-sm rounded-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -223,6 +234,25 @@ export default function LocationInfo() {
                     <WeatherDetail label="风力" value={`${weather.windpower}级`} />
                   </div>
                 </div>
+
+                {/* 紫外线强度 */}
+                {weather.uv && weather.uv !== '--' && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">紫外线</span>
+                    <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(parseInt(weather.uv) / 15 * 100, 100)}%`,
+                          backgroundColor: getUvColor(parseInt(weather.uv)),
+                        }}
+                      />
+                    </div>
+                    <span className="text-[11px] font-medium" style={{ color: getUvColor(parseInt(weather.uv)) }}>
+                      指数 {weather.uv} · {weather.uvLevel}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -336,6 +366,16 @@ function WeatherDetail({ label, value }: { label: string; value: string }) {
       <span className="font-medium text-foreground">{value}</span>
     </div>
   )
+}
+
+/** 紫外线强度对应颜色 */
+function getUvColor(uv: number): string {
+  if (isNaN(uv)) return '#8e8e93'
+  if (uv < 3) return '#34c759'   // 绿-最弱
+  if (uv < 5) return '#ffcc00'   // 黄-较弱
+  if (uv < 7) return '#ff9500'   // 橙-中等
+  if (uv < 10) return '#ff3b30'  // 红-强
+  return '#af52de'               // 紫-极强
 }
 
 /** 格式化高德时间 "2025-03-18 01:27:00"（北京时间）→ 本地时间 "14:27" */

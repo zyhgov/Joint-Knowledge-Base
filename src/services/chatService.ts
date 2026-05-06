@@ -791,6 +791,36 @@ export const chatService = {
     return { is_globally_muted: globalMuted, group_mutes: groupMutes }
   },
 
+  // 获取用户全局禁言详情（含原因和过期时间）
+  getUserBanDetail: async (userId: string): Promise<{
+    banned: boolean
+    reason: string | null
+    expires_at: string | null
+    muted_by: string
+    muted_by_name: string | null
+  } | null> => {
+    const now = new Date().toISOString()
+    const { data } = await supabase
+      .from('chat_mutes')
+      .select(`
+        id, reason, expires_at, muted_by,
+        muter:jkb_users!chat_mutes_muted_by_fkey(display_name)
+      `)
+      .eq('user_id', userId)
+      .is('conversation_id', null)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .maybeSingle()
+
+    if (!data) return null
+    return {
+      banned: true,
+      reason: data.reason,
+      expires_at: data.expires_at,
+      muted_by: data.muted_by,
+      muted_by_name: (data as any).muter?.display_name || null,
+    }
+  },
+
   // ====== 消息搜索 ======
 
   // 全文搜索用户参与会话中的消息

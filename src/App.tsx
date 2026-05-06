@@ -29,6 +29,7 @@ import PreviewPlaceholder from '@/pages/Admin/PreviewPlaceholder'
 import RuoshanPage from '@/pages/Ruoshan/RuoshanPage'
 import ChatPage from '@/pages/Chat/ChatPage'
 import ChatManagement from '@/pages/Admin/ChatManagement'
+import SystemAudit from '@/pages/Admin/SystemAudit'
 
 // Windows 10/11 风格加载页
 function LoadingScreen() {
@@ -405,6 +406,18 @@ function App() {
             <ProtectedRoute requiredPerms={['chat_manage']}>
               <MainLayout title="聊天记录管理">
                 <ChatManagement />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 系统日志审查（仅超级管理员） */}
+        <Route
+          path="/admin/system-audit"
+          element={
+            <ProtectedRoute requireSuperAdmin>
+              <MainLayout title="系统日志审查">
+                <SystemAudit />
               </MainLayout>
             </ProtectedRoute>
           }

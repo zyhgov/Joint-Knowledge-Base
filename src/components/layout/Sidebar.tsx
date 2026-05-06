@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
-import { hasAnyPermission } from '@/utils/permission'
+import { hasAnyPermission, isSuperAdmin } from '@/utils/permission'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,7 @@ import {
   ClipboardDocumentCheckIcon,
   ChatBubbleLeftRightIcon,
   SparklesIcon,
+  EyeIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDown, ChevronUp, GitCommit } from "lucide-react";
 interface SidebarProps {
@@ -78,6 +79,7 @@ const adminMenuItems = [
   { name: '审批管理', icon: ClipboardDocumentCheckIcon, path: '/admin/approval', perm: ['approval_read', 'approval_manage'] },
   { name: 'AI 对话管理', icon: ChatBubbleLeftRightIcon, path: '/admin/ai-chat', perm: ['ai_chat_manage'] },
   { name: '聊天记录管理', icon: ChatBubbleLeftRightIcon, path: '/admin/chat', perm: ['chat_manage'] },
+  { name: '系统日志审查', icon: EyeIcon, path: '/admin/system-audit', perm: null, superAdminOnly: true },
 ]
 
 const roleLabels: Record<string, string> = {
@@ -158,6 +160,10 @@ export default function Sidebar({ collapsed, onToggleCollapse }: SidebarProps) {
   // 根据权限判断是否显示管理菜单（每个菜单项独立判断）
   const visibleAdminMenuItems = useMemo(() => {
     return adminMenuItems.filter((item) => {
+      // 超级管理员专属
+      if ((item as any).superAdminOnly) {
+        return isSuperAdmin(user)
+      }
       if (!item.perm) return true
       return hasAnyPermission(user, userPermissions, ...item.perm)
     })

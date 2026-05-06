@@ -101,6 +101,18 @@ export default function ChatWindow({ conversationId, userId, onMessageSent, onBa
   const [highlightedMsgId, setHighlightedMsgId] = useState<string | null>(null)
   const skipAutoScrollRef = useRef(false)
 
+  // 禁言/封禁状态
+  const [myBanInfo, setMyBanInfo] = useState<{
+    banned: boolean
+    reason: string | null
+    expires_at: string | null
+  } | null>(null)
+  const [otherBanInfo, setOtherBanInfo] = useState<{
+    banned: boolean
+    reason: string | null
+    expires_at: string | null
+  } | null>(null)
+
   // 全局批量抓取链接预览（避免内嵌组件反复挂载导致的图片闪烁）
   useEffect(() => {
     messages.forEach(msg => {
@@ -161,6 +173,26 @@ export default function ChatWindow({ conversationId, userId, onMessageSent, onBa
     loadMessages()
     loadConvDetails()
   }, [conversationId, loadMessages, loadConvDetails])
+
+  // 检查当前用户和对方的禁言状态
+  useEffect(() => {
+    if (!userId || !convDetails) return
+
+    // 检查当前用户是否被全局禁言
+    chatService.getUserBanDetail(userId).then(info => {
+      setMyBanInfo(info)
+    }).catch(() => {})
+
+    // 如果是私聊，检查对方是否被全局禁言
+    if (convDetails.type === 'direct') {
+      const otherParticipant = convDetails.participants.find(p => p.user.id !== userId)
+      if (otherParticipant) {
+        chatService.getUserBanDetail(otherParticipant.user.id).then(info => {
+          setOtherBanInfo(info)
+        }).catch(() => {})
+      }
+    }
+  }, [userId, convDetails])
 
   // 订阅实时新消息
   useEffect(() => {
@@ -240,6 +272,16 @@ export default function ChatWindow({ conversationId, userId, onMessageSent, onBa
   const handleSend = async () => {
     const content = input.trim()
     if ((!content && pendingImages.length === 0 && pendingFiles.length === 0) || sending) return
+
+    // 检查封禁状态
+    if (myBanInfo?.banned) {
+      alert('你已被封禁，无法发送消息')
+      return
+    }
+    if (otherBanInfo?.banned) {
+      alert('对方已被封禁，无法发送消息')
+      return
+    }
 
     setSending(true)
     try {
@@ -766,6 +808,55 @@ export default function ChatWindow({ conversationId, userId, onMessageSent, onBa
         </div>
       </div>
 
+      {/* 消息+输入区容器（用于封禁遮罩定位） */}
+      <div className="relative flex-1 flex flex-col min-h-0">
+
+      {/* 封禁遮罩 */}
+      {(myBanInfo?.banned || otherBanInfo?.banned) && (
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-background/70 backdrop-blur-sm">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl p-6 max-w-sm w-11/12 text-center space-y-3">
+            {myBanInfo?.banned ? (
+              <>
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
+                  <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-foreground">你已被封禁</h3>
+                {myBanInfo.reason && (
+                  <p className="text-sm text-muted-foreground">原因：{myBanInfo.reason}</p>
+                )}
+                {myBanInfo.expires_at && (
+                  <BanCountdown expiresAt={myBanInfo.expires_at} />
+                )}
+                {!myBanInfo.expires_at && (
+                  <p className="text-xs text-muted-foreground/60">永久封禁</p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mx-auto">
+                  <svg className="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-foreground">对方已被封禁</h3>
+                {otherBanInfo!.reason && (
+                  <p className="text-sm text-muted-foreground">原因：{otherBanInfo!.reason}</p>
+                )}
+                {otherBanInfo!.expires_at && (
+                  <BanCountdown expiresAt={otherBanInfo!.expires_at} />
+                )}
+                {!otherBanInfo!.expires_at && (
+                  <p className="text-xs text-muted-foreground/60">永久封禁</p>
+                )}
+                <p className="text-xs text-muted-foreground/60">无法发送消息</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
         {messages.length === 0 ? (
@@ -1080,6 +1171,9 @@ export default function ChatWindow({ conversationId, userId, onMessageSent, onBa
         </div>
       </div>
 
+      </div>
+      {/* 消息+输入区容器结束 */}
+
       {/* 群信息弹窗 */}
       {showGroupInfo && (
         <GroupInfoDialog
@@ -1236,4 +1330,41 @@ function formatDateLabel(date: Date): string {
     return weekdays[date.getDay()]
   }
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// 封禁倒计时组件
+function BanCountdown({ expiresAt }: { expiresAt: string }) {
+  const [remaining, setRemaining] = useState('')
+  const timerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
+
+  useEffect(() => {
+    const calc = () => {
+      const now = Date.now()
+      const end = new Date(expiresAt).getTime()
+      const diff = end - now
+      if (diff <= 0) {
+        setRemaining('即将解封')
+        return
+      }
+      const days = Math.floor(diff / 86400000)
+      const hours = Math.floor((diff % 86400000) / 3600000)
+      const minutes = Math.floor((diff % 3600000) / 60000)
+      if (days > 0) {
+        setRemaining(`${days}天${hours}小时${minutes}分钟`)
+      } else if (hours > 0) {
+        setRemaining(`${hours}小时${minutes}分钟`)
+      } else {
+        setRemaining(`${minutes}分钟`)
+      }
+    }
+    calc()
+    timerRef.current = setInterval(calc, 60000)
+    return () => clearInterval(timerRef.current)
+  }, [expiresAt])
+
+  return (
+    <p className="text-sm text-orange-500 font-medium">
+      剩余 {remaining}
+    </p>
+  )
 }
