@@ -60,6 +60,16 @@ export const PERM = {
   // 审批
   APPROVAL_READ: 'approval_read',
   APPROVAL_MANAGE: 'approval_manage',
+
+  // 协作表格
+  SPREADSHEET_READ: 'spreadsheet_read',
+  SPREADSHEET_CREATE: 'spreadsheet_create',
+  SPREADSHEET_EDIT: 'spreadsheet_edit',
+  SPREADSHEET_DELETE: 'spreadsheet_delete',
+  SPREADSHEET_IMPORT: 'spreadsheet_import',
+  SPREADSHEET_EXPORT: 'spreadsheet_export',
+  SPREADSHEET_SHARE: 'spreadsheet_share',
+  SPREADSHEET_MANAGE: 'spreadsheet_manage',
 } as const
 
 export type PermissionCode = (typeof PERM)[keyof typeof PERM]
@@ -392,6 +402,118 @@ export function canCreateFolder(
   if (!user) return false
   if (isAdmin(user)) return true
   return userPermissions.includes(PERM.FOLDER_CREATE)
+}
+
+// ============================================================
+// 协作表格权限
+// ============================================================
+
+/**
+ * 判断用户是否可以查看协作表格
+ */
+export function canReadSpreadsheet(
+  user: JkbUserProfile | null,
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  return userPermissions.includes(PERM.SPREADSHEET_READ)
+}
+
+/**
+ * 判断用户是否可以创建协作表格
+ */
+export function canCreateSpreadsheet(
+  user: JkbUserProfile | null,
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  return userPermissions.includes(PERM.SPREADSHEET_CREATE)
+}
+
+/**
+ * 判断用户是否可以编辑协作表格
+ * 条件：管理员 / 创建者 / 拥有 spreadsheet_edit 权限
+ */
+export function canEditSpreadsheet(
+  user: JkbUserProfile | null,
+  spreadsheet: { created_by: string },
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  if (spreadsheet.created_by === user.id) return true
+  return userPermissions.includes(PERM.SPREADSHEET_EDIT)
+}
+
+/**
+ * 判断用户是否可以删除协作表格
+ * 条件：管理员 / 创建者 / 拥有 spreadsheet_delete 权限
+ */
+export function canDeleteSpreadsheet(
+  user: JkbUserProfile | null,
+  spreadsheet: { created_by: string },
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  if (spreadsheet.created_by === user.id) return true
+  return userPermissions.includes(PERM.SPREADSHEET_DELETE)
+}
+
+/**
+ * 判断用户是否可以导入 Excel 到协作表格
+ */
+export function canImportSpreadsheet(
+  user: JkbUserProfile | null,
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  return userPermissions.includes(PERM.SPREADSHEET_IMPORT)
+}
+
+/**
+ * 判断用户是否可以导出协作表格
+ */
+export function canExportSpreadsheet(
+  user: JkbUserProfile | null,
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  return userPermissions.includes(PERM.SPREADSHEET_EXPORT)
+}
+
+/**
+ * 判断用户是否可以分享协作表格
+ * 条件：管理员 / 创建者 / 拥有 spreadsheet_share 权限
+ */
+export function canShareSpreadsheet(
+  user: JkbUserProfile | null,
+  spreadsheet: { created_by: string },
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  if (spreadsheet.created_by === user.id) return true
+  return userPermissions.includes(PERM.SPREADSHEET_SHARE)
+}
+
+/**
+ * 判断用户是否可以管理协作表格权限（保护规则等）
+ * 条件：管理员 / 创建者 / 拥有 spreadsheet_manage 权限
+ */
+export function canManageSpreadsheet(
+  user: JkbUserProfile | null,
+  spreadsheet: { created_by: string },
+  userPermissions: string[]
+): boolean {
+  if (!user) return false
+  if (isAdmin(user)) return true
+  if (spreadsheet.created_by === user.id) return true
+  return userPermissions.includes(PERM.SPREADSHEET_MANAGE)
 }
 
 // ============================================================

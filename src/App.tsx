@@ -30,6 +30,9 @@ import RuoshanPage from '@/pages/Ruoshan/RuoshanPage'
 import ChatPage from '@/pages/Chat/ChatPage'
 import ChatManagement from '@/pages/Admin/ChatManagement'
 import SystemAudit from '@/pages/Admin/SystemAudit'
+import SpreadsheetsPage from '@/pages/Spreadsheet/SpreadsheetsPage'
+import SpreadsheetEditor from '@/pages/Spreadsheet/SpreadsheetEditor'
+import SharedSpreadsheet from '@/pages/Spreadsheet/SharedSpreadsheet'
 
 // Windows 10/11 风格加载页
 function LoadingScreen() {
@@ -422,6 +425,31 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* 协作表格 */}
+        <Route
+          path="/spreadsheets"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="协作表格">
+                <SpreadsheetsPage />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/spreadsheets/:id"
+          element={
+            <ProtectedRoute>
+              <MainLayout title="表格编辑" noPadding>
+                <SpreadsheetEditor />
+              </MainLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        {/* 分享的表格（无需登录） */}
+        <Route path="/shared-spreadsheet/:shareCode" element={<SharedSpreadsheet />} />
       </Routes>
     </Router>
   )

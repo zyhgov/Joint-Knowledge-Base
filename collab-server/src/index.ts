@@ -2,10 +2,32 @@ import { Hono } from "hono";
 import { YDurableObjects, yRoute } from "y-durableobjects";
 import { cors } from "hono/cors";
 
+// 内存封禁列表（key: `spreadsheetId:userId`, value: reason）
+const bannedUsers = new Map<string, string>()
+
+// 简易 Supabase token 验证（复用 JWT）
+async function verifyToken(token: string, env: any): Promise<{ user_id: string } | null> {
+  try {
+    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        apikey: env.SUPABASE_ANON_KEY,
+      },
+    })
+    if (!res.ok) return null
+    const data = await res.json() as any
+    return { user_id: data.id }
+  } catch {
+    return null
+  }
+}
+
 type Bindings = {
   Y_DURABLE_OBJECTS: DurableObjectNamespace<YDurableObjects<Env>>;
   VOLC_API_KEY: string;
   VOLC_MODEL: string;
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
 };
 
 type Env = {
@@ -161,6 +183,73 @@ app.get("/api/link-preview", async (c) => {
     return c.json({ error: `获取链接预览失败: ${err.message}` }, 502);
   }
 });
+
+// ====== 表格用户封禁/踢出管理 ======
+
+// 封禁用户
+app.post("/api/spreadsheet/:id/ban", async (c) => {
+  const { id } = c.req.param()
+  const { user_id } = await c.req.json()
+  if (!user_id) return c.json({ error: "缺少 user_id" }, 400)
+  
+  const key = `${id}:${user_id}`
+  bannedUsers.set(key, "banned")
+  
+  // 同时持久化到 Supabase
+  try {
+    await fetch(`${c.env.SUPABASE_URL}/rest/v1/spreadsheet_bans`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "apikey": c.env.SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${c.env.SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        spreadsheet_id: id,
+        user_id,
+        banned_by: "server",
+      }),
+    })
+  } catch {}
+  
+  return c.json({ ok: true, action: "ban" })
+})
+
+// 解封用户
+app.post("/api/spreadsheet/:id/unban", async (c) => {
+  const { id } = c.req.param()
+  const { user_id } = await c.req.json()
+  if (!user_id) return c.json({ error: "缺少 user_id" }, 400)
+  
+  const key = `${id}:${user_id}`
+  bannedUsers.delete(key)
+  
+  // 从 Supabase 删除封禁记录
+  try {
+    await fetch(`${c.env.SUPABASE_URL}/rest/v1/spreadsheet_bans?spreadsheet_id=eq.${id}&user_id=eq.${user_id}`, {
+      method: "DELETE",
+      headers: {
+        "apikey": c.env.SUPABASE_ANON_KEY,
+        "Authorization": `Bearer ${c.env.SUPABASE_ANON_KEY}`,
+      },
+    })
+  } catch {}
+  
+  return c.json({ ok: true, action: "unban" })
+})
+
+// 踢出用户（先封禁，再断开连接）
+app.post("/api/spreadsheet/:id/kick", async (c) => {
+  const { id } = c.req.param()
+  const { user_id } = await c.req.json()
+  if (!user_id) return c.json({ error: "缺少 user_id" }, 400)
+  
+  // 踢出 = 临时封禁（用户必须重连才能恢复）
+  const key = `${id}:${user_id}`
+  bannedUsers.set(key, "kicked")
+  
+  return c.json({ ok: true, action: "kick" })
+})
 
 // Yjs 协作路由 - WebSocket 连接端点
 // 客户端通过 ws://host/editor/{docId} 连接

@@ -37,6 +37,7 @@ import {
   ChatBubbleLeftRightIcon,
   SparklesIcon,
   EyeIcon,
+  TableCellsIcon,
 } from '@heroicons/react/24/outline'
 import { ChevronDown, ChevronUp, GitCommit } from "lucide-react";
 interface SidebarProps {
@@ -65,6 +66,7 @@ const menuItems = [
   { name: '和豆包聊聊', icon: DoubaoIcon, path: '/ai-chat', perm: ['ai_chat_read'] },
   { name: '若善云系统', icon: RuoshanIcon, path: '/ruoshan', perm: null },
   { name: '即时通讯', icon: ChatBubbleLeftRightIcon, path: '/chat', perm: null },
+  { name: '协作表格', icon: TableCellsIcon, path: '/spreadsheets', perm: ['spreadsheet_read'] },
 ]
 
 const adminMenuItems = [

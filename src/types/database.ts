@@ -465,3 +465,30 @@ export interface ChatMuteWithDetails extends ChatMute {
     type: string
   } | null
 }
+
+// ====== 协作表格（Univer Sheets） ======
+export interface Spreadsheet {
+  id: string
+  name: string
+  snapshot: any
+  created_by: string
+  access_level: 'public' | 'department' | 'private'
+  edit_permission: 'editable' | 'readonly'
+  icon: string
+  description: string
+  visible_department_ids: string[]
+  is_deleted: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface SpreadsheetShare {
+  id: string
+  spreadsheet_id: string
+  share_code: string
+  password_hash: string | null
+  expires_at: string | null
+  can_edit: boolean
+  created_by: string
+  created_at: string
+}

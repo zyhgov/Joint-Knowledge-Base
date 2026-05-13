@@ -261,6 +261,7 @@ export default function RoleManagement() {
     ai_chat: 'AI 对话',
     hr: '人力资源',
     approval: '审批',
+    spreadsheet: '协作表格',
   }
 
   // 操作名称映射

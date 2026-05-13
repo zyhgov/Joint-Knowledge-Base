@@ -267,6 +267,15 @@ export const roleService = {
       // 审批
       { name: '查看审批', code: 'approval_read', resource: 'approval', action: 'read', description: '查看审批管理页面' },
       { name: '管理审批', code: 'approval_manage', resource: 'approval', action: 'manage', description: '处理和管理审批请求' },
+      // 协作表格
+      { name: '查看协作表格', code: 'spreadsheet_read', resource: 'spreadsheet', action: 'read', description: '查看协作表格列表和内容' },
+      { name: '创建协作表格', code: 'spreadsheet_create', resource: 'spreadsheet', action: 'create', description: '创建新的协作表格' },
+      { name: '编辑协作表格', code: 'spreadsheet_edit', resource: 'spreadsheet', action: 'update', description: '编辑协作表格内容' },
+      { name: '删除协作表格', code: 'spreadsheet_delete', resource: 'spreadsheet', action: 'delete', description: '删除协作表格' },
+      { name: '导入协作表格', code: 'spreadsheet_import', resource: 'spreadsheet', action: 'import', description: '从 Excel 导入协作表格' },
+      { name: '导出协作表格', code: 'spreadsheet_export', resource: 'spreadsheet', action: 'export', description: '将协作表格导出为 Excel/CSV' },
+      { name: '分享协作表格', code: 'spreadsheet_share', resource: 'spreadsheet', action: 'share', description: '分享协作表格给他人' },
+      { name: '管理协作表格', code: 'spreadsheet_manage', resource: 'spreadsheet', action: 'manage', description: '管理协作表格的权限设置和保护规则' },
     ]
 
     // 获取已有权限（用 code 和 resource+action 两个维度过滤）
