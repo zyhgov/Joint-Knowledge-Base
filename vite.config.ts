@@ -31,7 +31,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        maximumFileSizeToCacheInBytes: 7 * 1024 * 1024, // 7MB（项目 JS 包约 5.6MB）
+        maximumFileSizeToCacheInBytes: 35 * 1024 * 1024, // 35MB（项目 JS 包约 31.9MB）
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[^.]+\.supabase\.co\/.*$/i,
