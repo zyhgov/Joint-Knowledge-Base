@@ -1,0 +1,10 @@
+# Service Worker 文件禁止 HTTP 缓存，确保每次检查都获取最新版本
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# 主页面也不缓存，确保能加载最新的 HTML 引用
+/index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/
+  Cache-Control: no-cache, no-store, must-revalidate
