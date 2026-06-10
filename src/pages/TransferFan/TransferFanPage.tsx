@@ -48,6 +48,33 @@ export default function TransferFanPage() {
   const isAdmin = isSuperAdmin || currentUser?.role === 'admin'
   const [currentUserDeptIds, setCurrentUserDeptIds] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState('create')
+  const [showDeprecationNotice, setShowDeprecationNotice] = useState(true)
+
+  // 下线倒计时：2026年6月15日 00:00:00
+  const DEADLINE = useMemo(() => new Date('2026-06-15T00:00:00+08:00').getTime(), [])
+  const [countdown, setCountdown] = useState('')
+  const [isExpired, setIsExpired] = useState(false)
+
+  useEffect(() => {
+    const calcCountdown = () => {
+      const now = Date.now()
+      const diff = DEADLINE - now
+      if (diff <= 0) {
+        setIsExpired(true)
+        setCountdown('已下线')
+        return
+      }
+      setIsExpired(false)
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+      setCountdown(`${days}天 ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
+    }
+    calcCountdown()
+    const timer = setInterval(calcCountdown, 1000)
+    return () => clearInterval(timer)
+  }, [DEADLINE])
 
   // 将部门树平铺为扁平列表，用于Select选项显示
   const flatDepartments = useMemo(() => {
@@ -411,8 +438,44 @@ export default function TransferFanPage() {
     )
   }
 
-  return (
-    <div className="h-full flex flex-col">
+ return (
+    <div className="h-full flex flex-col relative">
+      {/* 功能下线黄色警示条（关闭弹窗后显示） */}
+      {!showDeprecationNotice && (
+        <div className={cn(
+          'border-b px-6 py-3',
+          isExpired
+            ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800'
+            : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
+        )}>
+          <div className={cn(
+            'flex items-center justify-between gap-4 text-sm',
+            isExpired ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
+          )}>
+            <div className="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                {isExpired ? (
+                  <><strong>转粉工单功能已正式下线</strong>，不再接受新工单且不再处理。请阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>开始使用若善云系统内置转粉功能。</>
+                ) : (
+                  <><strong>转粉工单将于 2026年6月15日 下线</strong>，目前仍可正常提交，管理员会进行处理。请尽早阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>并开始使用若善云系统内置转粉功能。</>
+                )}
+              </span>
+            </div>
+            <div className={cn(
+              'flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold tabular-nums',
+              isExpired
+                ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
+                : 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
+            )}>
+              {isExpired ? '⛔ 已下线' : `⏳ ${countdown}`}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 页面标题 + Tab切换 */}
       <div className="border-b border-border px-6 pt-4">
         <div className="flex items-center justify-between mb-3">
@@ -548,9 +611,9 @@ export default function TransferFanPage() {
               </div>
 
               {/* 添加按钮 */}
-              <Button onClick={handleAddTransfer} className="w-full">
+              <Button onClick={handleAddTransfer} className="w-full" disabled={isExpired}>
                 <PlusIcon className="h-4 w-4 mr-2" />
-                添加到工单列表
+                {isExpired ? '功能已下线，无法添加' : '添加到工单列表'}
               </Button>
             </div>
 
@@ -603,11 +666,11 @@ export default function TransferFanPage() {
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || isExpired}
                   className="w-full"
                 >
                   <PaperAirplaneIcon className="h-4 w-4 mr-2" />
-                  {submitting ? '提交中...' : `提交全部工单 (${transferList.length})`}
+                  {isExpired ? '功能已下线，无法提交' : submitting ? '提交中...' : `提交全部工单 (${transferList.length})`}
                 </Button>
               </div>
             )}
@@ -703,6 +766,90 @@ export default function TransferFanPage() {
       ) : (
         <div className="flex-1 overflow-y-auto p-6">
           <OrderManagement />
+        </div>
+      )}
+
+      {/* 功能下线蒙版弹窗（仅覆盖内容区域） */}
+      {showDeprecationNotice && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#f5f5f7]/90 dark:bg-background/90 backdrop-blur-sm">
+          <div className="bg-background rounded-xl shadow-xl border border-border max-w-lg w-[92%] overflow-hidden">
+            {/* 顶部警示条 */}
+            <div className={cn(
+              'px-5 py-3 flex items-center justify-between',
+              isExpired
+                ? 'bg-gradient-to-r from-red-500 to-red-600'
+                : 'bg-gradient-to-r from-amber-500 to-orange-500'
+            )}>
+              <div className="flex items-center gap-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h2 className="text-base font-semibold text-white">
+                  {isExpired ? '转粉工单功能已正式下线' : '转粉工单功能将在2026年6月15号下线'}
+                </h2>
+              </div>
+            </div>
+            {/* 倒计时区域 */}
+            <div className={cn(
+              'px-5 py-3 flex items-center justify-center gap-2 border-b border-border',
+              isExpired ? 'bg-red-50 dark:bg-red-950/30' : 'bg-amber-50 dark:bg-amber-950/30'
+            )}>
+              <svg xmlns="http://www.w3.org/2000/svg" className={cn('h-4 w-4', isExpired ? 'text-red-500' : 'text-amber-500')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className={cn('text-sm font-medium', isExpired ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')}>
+                {isExpired ? '功能已于 2026年6月15日 正式停用' : '距离下线还剩：'}
+              </span>
+              {!isExpired && (
+                <span className="text-base font-bold tabular-nums text-foreground bg-background px-2.5 py-0.5 rounded-md border border-border shadow-sm">
+                  {countdown}
+                </span>
+              )}
+            </div>
+            {/* 内容区 */}
+            <div className="px-5 py-5 space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {isExpired
+                  ? <>转粉工单功能已正式下线，<strong className="text-foreground">不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
+                  : <>在 <strong className="text-foreground">2026年6月15日</strong> 之前，您仍可正常提交转粉工单，管理员会照常处理。<strong className="text-foreground">到期后将不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
+                }
+              </p>
+              <a
+                href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors text-sm font-medium"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+                【腾讯文档】若善云系统内转粉操作步骤
+              </a>
+              <div className="bg-muted/50 rounded-lg px-4 py-3 space-y-2 text-sm text-muted-foreground">
+                {isExpired ? (
+                  <p>
+                    您仍可关闭此弹窗查看此前提交的历史工单记录。
+                  </p>
+                ) : (
+                  <p>
+                    关闭此弹窗后您可继续正常使用转粉工单功能，管理员会对提交的工单进行处理。
+                  </p>
+                )}
+                <p>
+                  如有疑问，请在微信群 <strong className="text-foreground">"IFC银发 领航破局"</strong> 内联系<strong className="text-foreground">胡凌峰</strong>与<strong className="text-foreground">张永豪</strong>。
+                </p>
+              </div>
+            </div>
+            {/* 底部操作 */}
+            <div className="border-t border-border px-5 py-3 flex justify-end bg-muted/30">
+              <button
+                onClick={() => setShowDeprecationNotice(false)}
+                className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
+              >
+                我已知晓，关闭
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

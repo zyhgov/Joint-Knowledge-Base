@@ -30,7 +30,7 @@ export default defineConfig({
             },
             workbox: {
                 globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-                maximumFileSizeToCacheInBytes: 35 * 1024 * 1024, // 35MB（项目 JS 包约 31.9MB）
+                maximumFileSizeToCacheInBytes: 35 * 1024 * 1024, // 35MB
                 runtimeCaching: [
                     {
                         urlPattern: /^https:\/\/[^.]+\.supabase\.co\/.*$/i,
@@ -45,6 +45,9 @@ export default defineConfig({
             },
         }),
     ],
+    build: {
+        chunkSizeWarningLimit: 2000,
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),

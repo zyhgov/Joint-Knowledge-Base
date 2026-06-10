@@ -371,7 +371,7 @@ function App() {
           path="/transfer-fan"
           element={
             <ProtectedRoute requiredPerms={['transfer_fan_read', 'transfer_fan_create', 'transfer_fan_manage']}>
-              <MainLayout title="转粉工单">
+              <MainLayout title="转粉工单" noPadding>
                 <TransferFanPage />
               </MainLayout>
             </ProtectedRoute>
