@@ -1,5 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/store/themeStore'
 import { usePoemStore, type PoemItem } from '@/store/poemStore'
@@ -7,32 +7,34 @@ import { Toaster } from 'react-hot-toast'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import MainLayout from '@/components/layout/MainLayout'
 import Login from '@/pages/Auth/Login'
-import Dashboard from '@/pages/Dashboard/Dashboard'
-import Settings from '@/pages/Settings/Settings'
-import UserManagement from '@/pages/Admin/UserManagement'
-import RoleManagement from '@/pages/Admin/RoleManagement'
-import DepartmentManagement from '@/pages/Admin/DepartmentManagement'
-import NotificationManagement from '@/pages/Admin/NotificationManagement'
-import AnnouncementManagement from '@/pages/Admin/AnnouncementManagement'
-import FilesPage from '@/pages/Files/FilesPage'
-import FileShareView from '@/pages/Files/FileShareView'
-import WorkspacesPage from '@/pages/Workspaces/WorkspacesPage'
-import FileStats from '@/pages/Stats/FileStats'
-import TransferFanStats from '@/pages/Stats/TransferFanStats'
-import DocumentsPage from '@/pages/Document/DocumentsPage'
-import { DocumentEditorWrapper } from '@/pages/Document/DocumentEditor'
-import DocumentShareView from '@/pages/Document/DocumentShareView'
-import TransferFanPage from '@/pages/TransferFan/TransferFanPage'
-import AIChat from '@/pages/AIChat/AIChat'
-import AIChatAdmin from '@/pages/AIChat/AIChatAdmin'
-import PreviewPlaceholder from '@/pages/Admin/PreviewPlaceholder'
-import RuoshanPage from '@/pages/Ruoshan/RuoshanPage'
-import ChatPage from '@/pages/Chat/ChatPage'
-import ChatManagement from '@/pages/Admin/ChatManagement'
-import SystemAudit from '@/pages/Admin/SystemAudit'
-import SpreadsheetsPage from '@/pages/Spreadsheet/SpreadsheetsPage'
-import SpreadsheetEditor from '@/pages/Spreadsheet/SpreadsheetEditor'
-import SharedSpreadsheet from '@/pages/Spreadsheet/SharedSpreadsheet'
+
+// 路由级代码分割：使用 React.lazy 动态导入页面组件
+const Dashboard = lazy(() => import('@/pages/Dashboard/Dashboard'))
+const Settings = lazy(() => import('@/pages/Settings/Settings'))
+const UserManagement = lazy(() => import('@/pages/Admin/UserManagement'))
+const RoleManagement = lazy(() => import('@/pages/Admin/RoleManagement'))
+const DepartmentManagement = lazy(() => import('@/pages/Admin/DepartmentManagement'))
+const NotificationManagement = lazy(() => import('@/pages/Admin/NotificationManagement'))
+const AnnouncementManagement = lazy(() => import('@/pages/Admin/AnnouncementManagement'))
+const FilesPage = lazy(() => import('@/pages/Files/FilesPage'))
+const FileShareView = lazy(() => import('@/pages/Files/FileShareView'))
+const WorkspacesPage = lazy(() => import('@/pages/Workspaces/WorkspacesPage'))
+const FileStats = lazy(() => import('@/pages/Stats/FileStats'))
+const TransferFanStats = lazy(() => import('@/pages/Stats/TransferFanStats'))
+const DocumentsPage = lazy(() => import('@/pages/Document/DocumentsPage'))
+const DocumentEditorWrapper = lazy(() => import('@/pages/Document/DocumentEditor').then(m => ({ default: m.DocumentEditorWrapper })))
+const DocumentShareView = lazy(() => import('@/pages/Document/DocumentShareView'))
+const TransferFanPage = lazy(() => import('@/pages/TransferFan/TransferFanPage'))
+const AIChat = lazy(() => import('@/pages/AIChat/AIChat'))
+const AIChatAdmin = lazy(() => import('@/pages/AIChat/AIChatAdmin'))
+const PreviewPlaceholder = lazy(() => import('@/pages/Admin/PreviewPlaceholder'))
+const RuoshanPage = lazy(() => import('@/pages/Ruoshan/RuoshanPage'))
+const ChatPage = lazy(() => import('@/pages/Chat/ChatPage'))
+const ChatManagement = lazy(() => import('@/pages/Admin/ChatManagement'))
+const SystemAudit = lazy(() => import('@/pages/Admin/SystemAudit'))
+const SpreadsheetsPage = lazy(() => import('@/pages/Spreadsheet/SpreadsheetsPage'))
+const SpreadsheetEditor = lazy(() => import('@/pages/Spreadsheet/SpreadsheetEditor'))
+const SharedSpreadsheet = lazy(() => import('@/pages/Spreadsheet/SharedSpreadsheet'))
 
 // Windows 10/11 风格加载页
 function LoadingScreen() {
@@ -154,6 +156,14 @@ function App() {
           duration: 3000,
         }}
       />
+      <Suspense fallback={
+        <div className="flex items-center justify-center h-screen w-screen bg-background">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3"></div>
+            <p className="text-sm text-muted-foreground">加载中...</p>
+          </div>
+        </div>
+      }>
       <Routes>
         <Route path="/login" element={<Login />} />
 
@@ -451,6 +461,7 @@ function App() {
         {/* 分享的表格（无需登录） */}
         <Route path="/shared-spreadsheet/:shareCode" element={<SharedSpreadsheet />} />
       </Routes>
+      </Suspense>
     </Router>
   )
 }
