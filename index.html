@@ -26,6 +26,7 @@
     <meta name="msapplication-TileColor" content="#863bff" />
     <meta name="msapplication-TileImage" content="/icon/ms-icon-144x144.png" />
     <meta name="msapplication-config" content="/icon/browserconfig.xml" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <title>联合知识库 | 让团队协作如呼吸般自然</title>
     <script charset="UTF-8" id="LA_COLLECT" src="//sdk.51.la/js-sdk-pro.min.js"></script>
     <script>LA.init({id:"LBDQaZPcKtv3fTnS",ck:"LBDQaZPcKtv3fTnS",autoTrack:true,hashMode:true,screenRecord:true})</script>
@@ -41,5 +42,24 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Service Worker 注册 + 自动更新
+      // 新 SW 只有几百字节，安装秒完成，激活时清除所有旧缓存
+      if ('serviceWorker' in navigator) {
+        // 注册 SW（如果已注册则触发更新检查）
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+          // 每次页面加载都主动检查更新
+          reg.update();
+        });
+        // 当新 SW 接管后，自动刷新页面加载最新内容
+        var refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', function() {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+      }
+    </script>
   </body>
 </html>
