@@ -248,6 +248,12 @@
   animation: poem-fade-in 0.8s ease-out forwards;
 }
 
+/* 警示斜纹动画 - 工单即将下线 */
+@keyframes stripes {
+  from { background-position: 0 0; }
+  to { background-position: 11.31px 0; }
+}
+
 /* ===== TipTap 编辑器样式 ===== */
 
 /* 编辑器根容器 */

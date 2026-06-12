@@ -50,8 +50,8 @@ export default function TransferFanPage() {
   const [activeTab, setActiveTab] = useState('create')
   const [showDeprecationNotice, setShowDeprecationNotice] = useState(true)
 
-  // 下线倒计时：2026年6月15日 00:00:00
-  const DEADLINE = useMemo(() => new Date('2026-06-15T00:00:00+08:00').getTime(), [])
+  // 下线倒计时：2026年6月13日 18:00:00
+  const DEADLINE = useMemo(() => new Date('2026-06-13T18:00:00+08:00').getTime(), [])
   const [countdown, setCountdown] = useState('')
   const [isExpired, setIsExpired] = useState(false)
 
@@ -460,7 +460,7 @@ export default function TransferFanPage() {
                 {isExpired ? (
                   <><strong>转粉工单功能已正式下线</strong>，不再接受新工单且不再处理。请阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>开始使用若善云系统内置转粉功能。</>
                 ) : (
-                  <><strong>转粉工单将于 2026年6月15日 下线</strong>，目前仍可正常提交，管理员会进行处理。请尽早阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>并开始使用若善云系统内置转粉功能。</>
+                  <><strong>转粉工单将于 2026年6月13日18:00 下线</strong>，目前仍可正常提交，管理员会进行处理。请尽早阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>并开始使用若善云系统内置转粉功能。</>
                 )}
               </span>
             </div>
@@ -699,29 +699,55 @@ export default function TransferFanPage() {
                   {submittedOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="p-4 rounded-lg border bg-card"
+                      className="relative rounded-lg border bg-card overflow-hidden"
                     >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(order.created_at).toLocaleString('zh-CN')}
-                          </span>
-                          <span className={cn(
-                            'text-xs px-2 py-0.5 rounded-full',
-                            TRANSFER_FAN_STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'
-                          )}>
-                            {TRANSFER_FAN_STATUS_LABELS[order.status] || order.status}
-                          </span>
-                        </div>
-                        <div className="flex items-start gap-2 text-sm">
-                          <span className="text-muted-foreground flex-shrink-0">源用户：</span>
-                          <SubmittedSourceDisplay order={order} />
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <span className="text-muted-foreground">目标用户：</span>
-                          <span className="font-medium text-primary">
-                            {order.target_user?.display_name || order.target_user?.phone || '未知'}
-                          </span>
+                      {/* 顶部斜纹警示条 */}
+                      <div className={cn(
+                        'h-1.5 w-full',
+                        isExpired
+                          ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-400'
+                          : 'bg-[repeating-linear-gradient(-45deg,transparent,transparent_4px,transparent_4px,transparent_5px,transparent_5px,transparent_9px)] bg-[length:200%_100%] animate-[stripes_1s_linear_infinite]'
+                      )} style={!isExpired ? {
+                        background: 'repeating-linear-gradient(-45deg, #f59e0b, #f59e0b 4px, #fbbf24 4px, #fbbf24 8px)',
+                        backgroundSize: '200% 100%',
+                        animation: 'stripes 1s linear infinite',
+                      } : undefined}
+                      />
+                      {/* 卡片主体 */}
+                      <div className="p-4 pl-5 border-l-[3px] border-l-amber-400 dark:border-l-amber-500">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(order.created_at).toLocaleString('zh-CN')}
+                              </span>
+                              {/* 即将下线小标签 */}
+                              <span className={cn(
+                                'text-[10px] px-1.5 py-0.5 rounded font-medium leading-none',
+                                isExpired
+                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                              )}>
+                                {isExpired ? '转粉工单已下线' : '转粉工单即将下线'}
+                              </span>
+                            </div>
+                            <span className={cn(
+                              'text-xs px-2 py-0.5 rounded-full',
+                              TRANSFER_FAN_STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'
+                            )}>
+                              {TRANSFER_FAN_STATUS_LABELS[order.status] || order.status}
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-2 text-sm">
+                            <span className="text-muted-foreground flex-shrink-0">源用户：</span>
+                            <SubmittedSourceDisplay order={order} />
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">目标用户：</span>
+                            <span className="font-medium text-primary">
+                              {order.target_user?.display_name || order.target_user?.phone || '未知'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -785,7 +811,7 @@ export default function TransferFanPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <h2 className="text-base font-semibold text-white">
-                  {isExpired ? '转粉工单功能已正式下线' : '转粉工单功能将在2026年6月15号下线'}
+                  {isExpired ? '转粉工单功能已正式下线' : '转粉工单功能将在2026年6月13号18:00下线'}
                 </h2>
               </div>
             </div>
@@ -798,7 +824,7 @@ export default function TransferFanPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <span className={cn('text-sm font-medium', isExpired ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')}>
-                {isExpired ? '功能已于 2026年6月15日 正式停用' : '距离下线还剩：'}
+                {isExpired ? '功能已于 2026年6月13日18:00 正式停用' : '距离下线还剩：'}
               </span>
               {!isExpired && (
                 <span className="text-base font-bold tabular-nums text-foreground bg-background px-2.5 py-0.5 rounded-md border border-border shadow-sm">
@@ -811,7 +837,7 @@ export default function TransferFanPage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {isExpired
                   ? <>转粉工单功能已正式下线，<strong className="text-foreground">不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
-                  : <>在 <strong className="text-foreground">2026年6月15日</strong> 之前，您仍可正常提交转粉工单，管理员会照常处理。<strong className="text-foreground">到期后将不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
+                  : <>在 <strong className="text-foreground">2026年6月13日18:00</strong> 之前，您仍可正常提交转粉工单，管理员会照常处理。<strong className="text-foreground">到期后将不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
                 }
               </p>
               <a
