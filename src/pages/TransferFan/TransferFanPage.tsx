@@ -7,7 +7,7 @@ import { departmentService } from '@/services/departmentService'
 import { userService } from '@/services/userService'
 import { transferFanService } from '@/services/transferFanService'
 import { DepartmentTreeNode, UserWithDepartments, TransferFanOrder, TransferFanReasonType, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, TRANSFER_FAN_REASON_LABELS } from '@/types/database'
-import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, MagnifyingGlassIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -15,6 +15,7 @@ import OrderManagement from './OrderManagement.tsx'
 import AuditManagement from './AuditManagement.tsx'
 import { SearchableUserSelect, DepartmentTreeSelect } from './components/FilterComponents'
 import ManualTransferDialog, { ManualTransferData } from './components/ManualTransferDialog'
+import { hardRefresh } from '@/utils/hardRefresh'
 
 interface TransferTarget {
   userId: string
@@ -333,7 +334,19 @@ export default function TransferFanPage() {
       setTransferList([])
       loadSubmittedOrders()
     } catch (error: any) {
-      toast.error('提交失败: ' + error.message)
+      const msg = error.message || ''
+      if (msg.includes('VALIDATION_FAILED')) {
+        // 数据库触发器拒绝：旧代码未带必填字段
+        toast.error(
+          <div>
+            <p className="font-semibold">❌ 提交被拒绝</p>
+            <p className="text-sm mt-1">{msg.replace('VALIDATION_FAILED: ', '')}</p>
+          </div>,
+          { duration: 8000 }
+        )
+      } else {
+        toast.error('提交失败: ' + msg)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -487,6 +500,16 @@ export default function TransferFanPage() {
               将源用户转移给目标用户管理，支持批量操作
             </p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => hardRefresh()}
+            className="gap-1.5 text-xs"
+            title="强制刷新页面以更新到最新代码"
+          >
+            <ArrowPathIcon className="h-3.5 w-3.5" />
+            强制刷新
+          </Button>
         </div>
         <div className="flex gap-6">
           <button

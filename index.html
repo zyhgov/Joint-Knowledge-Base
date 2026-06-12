@@ -51,10 +51,10 @@
           // 每次页面加载都主动检查更新
           reg.update();
         });
-        // 当新 SW 接管后，自动刷新页面加载最新内容
+        // 当新 SW 接管后，自动刷新页面加载最新内容（硬刷新时跳过）
         var refreshing = false;
         navigator.serviceWorker.addEventListener('controllerchange', function() {
-          if (!refreshing) {
+          if (!refreshing && !window.__HARD_REFRESHING__) {
             refreshing = true;
             window.location.reload();
           }
