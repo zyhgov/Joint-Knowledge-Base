@@ -16,3 +16,12 @@ bindings = [
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["YDurableObjects"]
+
+# R2 存储桶绑定（转粉工单附件）
+[[r2_buckets]]
+binding = "TRANSFER_BUCKET"
+bucket_name = "joint-knowledge-base"
+
+# Cron Triggers（每天凌晨3点清理过期附件）
+[triggers]
+crons = ["0 3 * * *"]

@@ -19,7 +19,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { transferFanService } from '@/services/transferFanService'
-import { TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS } from '@/types/database'
+import { TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, TRANSFER_FAN_REASON_LABELS } from '@/types/database'
 import { useAuthStore } from '@/store/authStore'
 import { userService } from '@/services/userService'
 import { departmentService } from '@/services/departmentService'
@@ -31,9 +31,9 @@ import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import {
   FunnelIcon, PaperAirplaneIcon, ClipboardDocumentListIcon,
-  XMarkIcon, ChevronDownIcon, ChevronRightIcon, CheckIcon,
+  XMarkIcon, ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, CheckIcon,
   TrashIcon, NoSymbolIcon, ClockIcon, PencilSquareIcon,
-  ArrowPathIcon, BoltIcon,
+  ArrowPathIcon, BoltIcon, PhotoIcon,
 } from '@heroicons/react/24/outline'
 
 interface GeneratedTransfer {
@@ -79,6 +79,10 @@ export default function OrderManagement() {
 
   // 展开的ID列表
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // 图片预览
+  const [previewImages, setPreviewImages] = useState<string[]>([])
+  const [previewIndex, setPreviewIndex] = useState(0)
 
   // 编辑工单
   const [editingOrder, setEditingOrder] = useState<TransferFanOrder | null>(null)
@@ -774,12 +778,15 @@ export default function OrderManagement() {
               />
             </div>
             <div className="w-[160px] flex-shrink-0">目标用户</div>
+            <div className="w-[100px] flex-shrink-0">转前坐席</div>
             <div className="w-[120px] flex-shrink-0">创建人</div>
             <div className="w-[80px] flex-shrink-0">角色</div>
-            <div className="w-[90px] flex-shrink-0">状态</div>
+            <div className="w-[110px] flex-shrink-0">申请原因</div>
+            <div className="w-[90px] flex-shrink-0">当前状态</div>
             <div className="w-[160px] flex-shrink-0">创建时间</div>
-            <div className="flex-1 min-w-0">源用户</div>
-            <div className="w-[130px] flex-shrink-0">操作</div>
+            <div className="flex-1 min-w-0">源用户ID</div>
+            <div className="w-[60px] flex-shrink-0">附件截图</div>
+            <div className="w-[130px] flex-shrink-0">操作按钮</div>
           </div>
 
           {/* 数据行 */}
@@ -800,6 +807,11 @@ export default function OrderManagement() {
                     {order.target_user?.display_name || order.target_user?.phone || '未知'}
                   </span>
                 </div>
+                <div className="w-[100px] flex-shrink-0 pt-1">
+                  <span className="text-sm text-muted-foreground">
+                    {order.seat_user?.display_name || order.seat_user?.phone || (order.seat_user_id ? '—' : '—')}
+                  </span>
+                </div>
                 <div className="w-[120px] flex-shrink-0 pt-1">
                   <span className="text-sm text-muted-foreground">
                     {order.creator?.display_name || order.creator?.phone || '未知'}
@@ -809,6 +821,20 @@ export default function OrderManagement() {
                   <span className="text-xs text-muted-foreground">
                     {getCreatorRole(order.created_by)}
                   </span>
+                </div>
+                <div className="w-[110px] flex-shrink-0 pt-1">
+                  {order.reason_type ? (
+                    <span className="text-xs text-muted-foreground">
+                      {TRANSFER_FAN_REASON_LABELS[order.reason_type]}
+                      {order.reason_type === 'other' && order.reason_detail && (
+                        <span className="block truncate max-w-[100px]" title={order.reason_detail}>
+                          {order.reason_detail}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </div>
                 <div className="w-[90px] flex-shrink-0 pt-1">
                   <StatusBadge status={order.status} />
@@ -831,6 +857,37 @@ export default function OrderManagement() {
                 </div>
                 <div className="flex-1 min-w-0 pt-1">
                   <SourceIdsDisplay ids={order.source_user_ids} />
+                </div>
+                <div className="w-[60px] flex-shrink-0 pt-1">
+                  {order.attachment_urls && order.attachment_urls.length > 0 ? (
+                    <div className="flex -space-x-1">
+                      {order.attachment_urls.slice(0, 2).map((att, idx) => (
+                        <img
+                          key={idx}
+                          src={att.url}
+                          alt={`附件${idx + 1}`}
+                          className="w-8 h-8 rounded border-2 border-card object-cover cursor-pointer hover:z-10 hover:scale-110 transition-transform"
+                          onClick={() => {
+                            setPreviewImages(order.attachment_urls!.map(a => a.url))
+                            setPreviewIndex(idx)
+                          }}
+                        />
+                      ))}
+                      {order.attachment_urls.length > 2 && (
+                        <div
+                          className="w-8 h-8 rounded border-2 border-card bg-muted flex items-center justify-center text-xs text-muted-foreground cursor-pointer hover:z-10 hover:scale-110 transition-transform"
+                          onClick={() => {
+                            setPreviewImages(order.attachment_urls!.map(a => a.url))
+                            setPreviewIndex(2)
+                          }}
+                        >
+                          +{order.attachment_urls.length - 2}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
                 </div>
                 <div className="w-[150px] flex-shrink-0 pt-1 flex gap-1 flex-wrap">
                   {canModifyOrder(order) && (
@@ -891,6 +948,35 @@ export default function OrderManagement() {
                         <><span>·</span><span>{getCreatorRole(order.created_by)}</span></>
                       )}
                     </div>
+                    {order.seat_user && (
+                      <div className="text-xs text-muted-foreground">
+                        坐席: {order.seat_user.display_name || order.seat_user.phone}
+                      </div>
+                    )}
+                    {order.reason_type && (
+                      <div className="text-xs text-muted-foreground">
+                        原因: {TRANSFER_FAN_REASON_LABELS[order.reason_type]}
+                        {order.reason_type === 'other' && order.reason_detail && (
+                          <span className="ml-1">{order.reason_detail}</span>
+                        )}
+                      </div>
+                    )}
+                    {order.attachment_urls && order.attachment_urls.length > 0 && (
+                      <div className="flex items-center gap-1.5">
+                        {order.attachment_urls.map((att, idx) => (
+                          <img
+                            key={idx}
+                            src={att.url}
+                            alt={`附件${idx + 1}`}
+                            className="h-10 w-10 rounded object-cover border cursor-pointer hover:opacity-80"
+                            onClick={() => {
+                              setPreviewImages(order.attachment_urls!.map(a => a.url))
+                              setPreviewIndex(idx)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
                     <div className="text-xs text-muted-foreground">
                       {new Date(order.created_at).toLocaleString('zh-CN')}
                     </div>
@@ -1175,6 +1261,43 @@ export default function OrderManagement() {
                 </Select>
               </div>
 
+              {/* 申请明细（只读展示） */}
+              {editingOrder?.reason_type && (
+                <div className="p-3 rounded-lg bg-muted/50 space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground">申请明细</div>
+                  {editingOrder.seat_user && (
+                    <div className="text-sm">
+                      <span className="text-muted-foreground">坐席用户：</span>
+                      {editingOrder.seat_user.display_name || editingOrder.seat_user.phone}
+                    </div>
+                  )}
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">申请原因：</span>
+                    {TRANSFER_FAN_REASON_LABELS[editingOrder.reason_type]}
+                    {editingOrder.reason_type === 'other' && editingOrder.reason_detail && (
+                      <span className="ml-1">{editingOrder.reason_detail}</span>
+                    )}
+                  </div>
+                  {editingOrder.attachment_urls && editingOrder.attachment_urls.length > 0 && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-sm text-muted-foreground">附件：</span>
+                      {editingOrder.attachment_urls.map((att, idx) => (
+                        <img
+                          key={idx}
+                          src={att.url}
+                          alt={`附件${idx + 1}`}
+                          className="h-12 w-12 rounded object-cover border cursor-pointer hover:opacity-80"
+                          onClick={() => {
+                            setPreviewImages(editingOrder.attachment_urls!.map(a => a.url))
+                            setPreviewIndex(idx)
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {editingOrder?.status === 'cancelled' && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                   <input
@@ -1200,6 +1323,49 @@ export default function OrderManagement() {
                 {savingEdit ? '保存中...' : '保存修改'}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 图片预览弹窗 */}
+      {previewImages.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setPreviewImages([])}>
+          <div className="relative flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            {/* 图片 */}
+            <img
+              src={previewImages[previewIndex]}
+              alt={`附件预览 ${previewIndex + 1}`}
+              className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
+            {/* 底部控制栏 */}
+            <div className="mt-4 flex items-center gap-4">
+              {previewImages.length > 1 && (
+                <button
+                  onClick={() => setPreviewIndex(i => (i - 1 + previewImages.length) % previewImages.length)}
+                  className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </button>
+              )}
+              <span className="text-white/80 text-sm tabular-nums">
+                {previewIndex + 1} / {previewImages.length}
+              </span>
+              {previewImages.length > 1 && (
+                <button
+                  onClick={() => setPreviewIndex(i => (i + 1) % previewImages.length)}
+                  className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setPreviewImages([])}
+              className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}

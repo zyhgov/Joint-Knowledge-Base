@@ -202,6 +202,16 @@ export interface UserWithDepartments {
   roles: import('./rbac').Role[]
 }
 
+// 转粉工单申请原因类型
+export type TransferFanReasonType = 'seat_rest' | 'seat_resign' | 'wechat_transfer' | 'other'
+
+export const TRANSFER_FAN_REASON_LABELS: Record<TransferFanReasonType, string> = {
+  seat_rest: '坐席休息',
+  seat_resign: '坐席离职',
+  wechat_transfer: '微信用户转粉',
+  other: '其他原因',
+}
+
 // 转粉工单
 export interface TransferFanOrder {
   id: string
@@ -215,6 +225,11 @@ export interface TransferFanOrder {
   processed_at: string | null
   created_at: string
   updated_at: string
+  // 人工转粉工单扩展字段
+  reason_type: TransferFanReasonType | null
+  reason_detail: string | null
+  seat_user_id: string | null
+  attachment_urls: Array<{ url: string; key: string; uploaded_at: string; size?: number }> | null
   // 关联数据（通过SQL join获取）
   target_user?: {
     id: string
@@ -233,6 +248,11 @@ export interface TransferFanOrder {
     display_name: string | null
     phone: string | null
     avatar_url: string | null
+  }
+  seat_user?: {
+    id: string
+    display_name: string | null
+    phone: string | null
   }
 }
 

@@ -144,6 +144,45 @@ async function detectBestFormat(): Promise<'avif' | 'webp' | 'jpeg'> {
 }
 
 /**
+ * 验证截图上传文件
+ * - 禁止 gif/svg
+ * - 限制 5MB
+ * - 最多 maxCount 张
+ */
+export function validateAttachment(
+  file: File,
+  options: { maxSizeMB?: number; maxCount?: number; currentCount?: number } = {}
+): { valid: boolean; error?: string } {
+  const { maxSizeMB = 5, maxCount = 3, currentCount = 0 } = options
+
+  // 数量检查
+  if (currentCount >= maxCount) {
+    return { valid: false, error: `最多上传 ${maxCount} 张截图` }
+  }
+
+  // 文件类型检查
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  if (ext === 'gif' || ext === 'svg') {
+    return { valid: false, error: '不支持 GIF 和 SVG 格式' }
+  }
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml') {
+    return { valid: false, error: '不支持 GIF 和 SVG 格式' }
+  }
+
+  // 文件大小检查
+  if (file.size > maxSizeMB * 1024 * 1024) {
+    return { valid: false, error: `文件大小不能超过 ${maxSizeMB}MB` }
+  }
+
+  // 必须是图片
+  if (!file.type.startsWith('image/')) {
+    return { valid: false, error: '只能上传图片文件' }
+  }
+
+  return { valid: true }
+}
+
+/**
  * 获取图片可公开访问的 URL（由后端 R2 托管）
  * 支持将 R2 key 或完整 URL 转为公开访问链接
  */

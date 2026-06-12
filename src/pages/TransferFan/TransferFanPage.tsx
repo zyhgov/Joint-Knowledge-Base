@@ -6,14 +6,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { departmentService } from '@/services/departmentService'
 import { userService } from '@/services/userService'
 import { transferFanService } from '@/services/transferFanService'
-import { DepartmentTreeNode, UserWithDepartments, TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS } from '@/types/database'
-import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { DepartmentTreeNode, UserWithDepartments, TransferFanOrder, TransferFanReasonType, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, TRANSFER_FAN_REASON_LABELS } from '@/types/database'
+import { PlusIcon, XMarkIcon, PaperAirplaneIcon, ChevronDownIcon, ChevronRightIcon, ChevronLeftIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline'
 import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import OrderManagement from './OrderManagement.tsx'
 import AuditManagement from './AuditManagement.tsx'
 import { SearchableUserSelect, DepartmentTreeSelect } from './components/FilterComponents'
+import ManualTransferDialog, { ManualTransferData } from './components/ManualTransferDialog'
 
 interface TransferTarget {
   userId: string
@@ -26,6 +27,11 @@ interface TransferEntry {
   sourceIds: string[]
   target: TransferTarget
   createdAt: Date
+  // 人工转粉工单扩展字段
+  reasonType: TransferFanReasonType
+  reasonDetail: string
+  seatUserId: string
+  attachmentUrls: Array<{ url: string; key: string; uploaded_at: string; size?: number }>
 }
 
 export default function TransferFanPage() {
@@ -48,33 +54,14 @@ export default function TransferFanPage() {
   const isAdmin = isSuperAdmin || currentUser?.role === 'admin'
   const [currentUserDeptIds, setCurrentUserDeptIds] = useState<string[]>([])
   const [activeTab, setActiveTab] = useState('create')
-  const [showDeprecationNotice, setShowDeprecationNotice] = useState(true)
+  // 人工转粉弹窗状态
+  const [showManualDialog, setShowManualDialog] = useState(false)
+  const [pendingSourceIds, setPendingSourceIds] = useState<string[]>([])
+  const [pendingTargetUser, setPendingTargetUser] = useState<{ name: string; dept: string } | null>(null)
 
-  // 下线倒计时：2026年6月13日 18:00:00
-  const DEADLINE = useMemo(() => new Date('2026-06-13T18:00:00+08:00').getTime(), [])
-  const [countdown, setCountdown] = useState('')
-  const [isExpired, setIsExpired] = useState(false)
-
-  useEffect(() => {
-    const calcCountdown = () => {
-      const now = Date.now()
-      const diff = DEADLINE - now
-      if (diff <= 0) {
-        setIsExpired(true)
-        setCountdown('已下线')
-        return
-      }
-      setIsExpired(false)
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-      setCountdown(`${days}天 ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`)
-    }
-    calcCountdown()
-    const timer = setInterval(calcCountdown, 1000)
-    return () => clearInterval(timer)
-  }, [DEADLINE])
+  // 图片预览
+  const [previewImages, setPreviewImages] = useState<string[]>([])
+  const [previewIndex, setPreviewIndex] = useState(0)
 
   // 将部门树平铺为扁平列表，用于Select选项显示
   const flatDepartments = useMemo(() => {
@@ -255,7 +242,7 @@ export default function TransferFanPage() {
     setSourceInput(cleaned)
   }
 
-  // 添加转粉条目
+  // 添加转粉条目（打开人工转粉申请弹窗）
   const handleAddTransfer = () => {
     const sourceIds = parseSourceIds()
     
@@ -275,20 +262,43 @@ export default function TransferFanPage() {
       return
     }
 
+    // 打开人工转粉申请弹窗
+    setPendingSourceIds(sourceIds)
+    setPendingTargetUser({
+      name: targetUser.display_name || targetUser.phone || '未命名用户',
+      dept: targetUser.primary_department?.name || '无部门',
+    })
+    setShowManualDialog(true)
+  }
+
+  // 人工转粉弹窗确认回调
+  const handleManualTransferConfirm = (data: ManualTransferData) => {
+    if (!pendingTargetUser) return
+
+    const targetUser = users.find(u => u.id === selectedUserId)
+    if (!targetUser) return
+
     const newEntry: TransferEntry = {
       id: Date.now().toString(),
-      sourceIds,
+      sourceIds: pendingSourceIds,
       target: {
         userId: targetUser.id,
-        userName: targetUser.display_name || targetUser.phone || '未命名用户',
-        departmentName: targetUser.primary_department?.name || '无部门'
+        userName: pendingTargetUser.name,
+        departmentName: pendingTargetUser.dept,
       },
-      createdAt: new Date()
+      createdAt: new Date(),
+      reasonType: data.reasonType,
+      reasonDetail: data.reasonDetail,
+      seatUserId: data.seatUserId,
+      attachmentUrls: data.attachmentUrls,
     }
 
     setTransferList([...transferList, newEntry])
     setSourceInput('')
     setSelectedUserId('')
+    setShowManualDialog(false)
+    setPendingSourceIds([])
+    setPendingTargetUser(null)
     toast.success('已添加到工单列表')
   }
 
@@ -311,6 +321,10 @@ export default function TransferFanPage() {
         target_user_id: entry.target.userId,
         remark: `转粉工单：${entry.sourceIds.length} 个源用户转移给 ${entry.target.userName}`,
         created_by: currentUser?.id || '',
+        reason_type: entry.reasonType,
+        reason_detail: entry.reasonDetail || null,
+        seat_user_id: entry.seatUserId,
+        attachment_urls: entry.attachmentUrls.length > 0 ? entry.attachmentUrls : null,
       }))
       
       await transferFanService.create(orders)
@@ -440,44 +454,32 @@ export default function TransferFanPage() {
 
  return (
     <div className="h-full flex flex-col relative">
-      {/* 功能下线黄色警示条（关闭弹窗后显示） */}
-      {!showDeprecationNotice && (
-        <div className={cn(
-          'border-b px-6 py-3',
-          isExpired
-            ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800'
-            : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800'
-        )}>
-          <div className={cn(
-            'flex items-center justify-between gap-4 text-sm',
-            isExpired ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
-          )}>
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>
-                {isExpired ? (
-                  <><strong>转粉工单功能已正式下线</strong>，不再接受新工单且不再处理。请阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>开始使用若善云系统内置转粉功能。</>
-                ) : (
-                  <><strong>转粉工单将于 2026年6月13日18:00 下线</strong>，目前仍可正常提交，管理员会进行处理。请尽早阅读<a href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h" target="_blank" rel="noopener noreferrer" className="underline font-medium hover:opacity-80 mx-0.5">操作文档</a>并开始使用若善云系统内置转粉功能。</>
-                )}
-              </span>
-            </div>
-            <div className={cn(
-              'flex-shrink-0 px-3 py-1 rounded-full text-xs font-bold tabular-nums',
-              isExpired
-                ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
-                : 'bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300'
-            )}>
-              {isExpired ? '⛔ 已下线' : `⏳ ${countdown}`}
+      {/* 页面标题 + Tab切换 */}
+      <div className="border-b border-border px-6 pt-4">
+        {/* 通知横幅 */}
+        <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl p-4 mb-4">
+          <div className="flex items-start gap-3">
+            <svg className="h-5 w-5 mt-0.5 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+            </svg>
+            <div className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+              <p>考虑到转粉特殊情况，当前转粉功能已转变为<strong>人工审核工单模式</strong>，提交工单时需上传对方同意转粉的截图等相关情况说明，由管理员人工审核后执行转粉操作。</p>
+              <p>
+                为提高转粉效率，管理员建议优先使用<strong>若善云系统</strong>内的原生转粉功能进行粉丝转移。
+                操作文档详见{' '}
+                <a
+                  href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline underline-offset-2 hover:text-blue-800 dark:hover:text-blue-200"
+                >
+                  若善系统内转粉步骤（在线文档）。
+                </a>
+              </p>
             </div>
           </div>
         </div>
-      )}
 
-      {/* 页面标题 + Tab切换 */}
-      <div className="border-b border-border px-6 pt-4">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h1 className="text-2xl font-bold text-foreground">转粉工单管理</h1>
@@ -497,7 +499,7 @@ export default function TransferFanPage() {
             )}
           >
             <PlusIcon className="h-4 w-4 inline mr-1.5" />
-            新建工单
+            新建人工审核工单
           </button>
           <button
             onClick={() => setActiveTab('management')}
@@ -535,7 +537,7 @@ export default function TransferFanPage() {
           <div className="space-y-6">
             <div className="flex items-center gap-2">
               <PlusIcon className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">新建工单</h2>
+              <h2 className="text-lg font-semibold">新建人工审核工单</h2>
             </div>
 
             {/* 输入模式切换 */}
@@ -611,9 +613,9 @@ export default function TransferFanPage() {
               </div>
 
               {/* 添加按钮 */}
-              <Button onClick={handleAddTransfer} className="w-full" disabled={isExpired}>
+              <Button onClick={handleAddTransfer} className="w-full">
                 <PlusIcon className="h-4 w-4 mr-2" />
-                {isExpired ? '功能已下线，无法添加' : '添加到工单列表'}
+                添加到工单列表
               </Button>
             </div>
 
@@ -666,11 +668,11 @@ export default function TransferFanPage() {
 
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting || isExpired}
+                  disabled={submitting}
                   className="w-full"
                 >
                   <PaperAirplaneIcon className="h-4 w-4 mr-2" />
-                  {isExpired ? '功能已下线，无法提交' : submitting ? '提交中...' : `提交全部工单 (${transferList.length})`}
+                  {submitting ? '提交中...' : `提交全部工单 (${transferList.length})`}
                 </Button>
               </div>
             )}
@@ -682,7 +684,7 @@ export default function TransferFanPage() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <PaperAirplaneIcon className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">已提交工单</h2>
+              <h2 className="text-lg font-semibold">已提交的人工审核工单</h2>
               <span className="text-sm text-muted-foreground">
                 ({submittedTotal})
               </span>
@@ -699,56 +701,67 @@ export default function TransferFanPage() {
                   {submittedOrders.map((order) => (
                     <div
                       key={order.id}
-                      className="relative rounded-lg border bg-card overflow-hidden"
+                      className="p-4 rounded-lg border bg-card"
                     >
-                      {/* 顶部斜纹警示条 */}
-                      <div className={cn(
-                        'h-1.5 w-full',
-                        isExpired
-                          ? 'bg-gradient-to-r from-red-400 via-red-500 to-red-400'
-                          : 'bg-[repeating-linear-gradient(-45deg,transparent,transparent_4px,transparent_4px,transparent_5px,transparent_5px,transparent_9px)] bg-[length:200%_100%] animate-[stripes_1s_linear_infinite]'
-                      )} style={!isExpired ? {
-                        background: 'repeating-linear-gradient(-45deg, #f59e0b, #f59e0b 4px, #fbbf24 4px, #fbbf24 8px)',
-                        backgroundSize: '200% 100%',
-                        animation: 'stripes 1s linear infinite',
-                      } : undefined}
-                      />
-                      {/* 卡片主体 */}
-                      <div className="p-4 pl-5 border-l-[3px] border-l-amber-400 dark:border-l-amber-500">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(order.created_at).toLocaleString('zh-CN')}
-                              </span>
-                              {/* 即将下线小标签 */}
-                              <span className={cn(
-                                'text-[10px] px-1.5 py-0.5 rounded font-medium leading-none',
-                                isExpired
-                                  ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                              )}>
-                                {isExpired ? '转粉工单已下线' : '转粉工单即将下线'}
-                              </span>
-                            </div>
-                            <span className={cn(
-                              'text-xs px-2 py-0.5 rounded-full',
-                              TRANSFER_FAN_STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'
-                            )}>
-                              {TRANSFER_FAN_STATUS_LABELS[order.status] || order.status}
-                            </span>
-                          </div>
-                          <div className="flex items-start gap-2 text-sm">
-                            <span className="text-muted-foreground flex-shrink-0">源用户：</span>
-                            <SubmittedSourceDisplay order={order} />
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <span className="text-muted-foreground">目标用户：</span>
-                            <span className="font-medium text-primary">
-                              {order.target_user?.display_name || order.target_user?.phone || '未知'}
-                            </span>
-                          </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(order.created_at).toLocaleString('zh-CN')}
+                          </span>
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded-full',
+                            TRANSFER_FAN_STATUS_COLORS[order.status] || 'bg-gray-100 text-gray-700'
+                          )}>
+                            {TRANSFER_FAN_STATUS_LABELS[order.status] || order.status}
+                          </span>
                         </div>
+                        <div className="flex items-start gap-2 text-sm">
+                          <span className="text-muted-foreground flex-shrink-0">源用户：</span>
+                          <SubmittedSourceDisplay order={order} />
+                        </div>
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-muted-foreground">目标用户：</span>
+                          <span className="font-medium text-primary">
+                            {order.target_user?.display_name || order.target_user?.phone || '未知'}
+                          </span>
+                        </div>
+                        {/* 人工转粉申请明细 */}
+                        {order.seat_user && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">坐席用户：</span>
+                            <span className="font-medium">{order.seat_user.display_name || order.seat_user.phone}</span>
+                          </div>
+                        )}
+                        {order.reason_type && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <span className="text-muted-foreground">申请原因：</span>
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300">
+                              {TRANSFER_FAN_REASON_LABELS[order.reason_type]}
+                            </span>
+                            {order.reason_type === 'other' && order.reason_detail && (
+                              <span className="text-xs text-muted-foreground">{order.reason_detail}</span>
+                            )}
+                          </div>
+                        )}
+                        {order.attachment_urls && order.attachment_urls.length > 0 && (
+                          <div className="flex items-start gap-2 text-sm">
+                            <span className="text-muted-foreground flex-shrink-0">佐证截图：</span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {order.attachment_urls.map((att, idx) => (
+                                <img
+                                  key={idx}
+                                  src={att.url}
+                                  alt={`截图${idx+1}`}
+                                  className="w-12 h-12 rounded border object-cover hover:opacity-80 transition-opacity cursor-pointer"
+                                  onClick={() => {
+                                    setPreviewImages(order.attachment_urls!.map(a => a.url))
+                                    setPreviewIndex(idx)
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -795,86 +808,58 @@ export default function TransferFanPage() {
         </div>
       )}
 
-      {/* 功能下线蒙版弹窗（仅覆盖内容区域） */}
-      {showDeprecationNotice && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#f5f5f7]/90 dark:bg-background/90 backdrop-blur-sm">
-          <div className="bg-background rounded-xl shadow-xl border border-border max-w-lg w-[92%] overflow-hidden">
-            {/* 顶部警示条 */}
-            <div className={cn(
-              'px-5 py-3 flex items-center justify-between',
-              isExpired
-                ? 'bg-gradient-to-r from-red-500 to-red-600'
-                : 'bg-gradient-to-r from-amber-500 to-orange-500'
-            )}>
-              <div className="flex items-center gap-2.5">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <h2 className="text-base font-semibold text-white">
-                  {isExpired ? '转粉工单功能已正式下线' : '转粉工单功能将在2026年6月13号18:00下线'}
-                </h2>
-              </div>
-            </div>
-            {/* 倒计时区域 */}
-            <div className={cn(
-              'px-5 py-3 flex items-center justify-center gap-2 border-b border-border',
-              isExpired ? 'bg-red-50 dark:bg-red-950/30' : 'bg-amber-50 dark:bg-amber-950/30'
-            )}>
-              <svg xmlns="http://www.w3.org/2000/svg" className={cn('h-4 w-4', isExpired ? 'text-red-500' : 'text-amber-500')} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span className={cn('text-sm font-medium', isExpired ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400')}>
-                {isExpired ? '功能已于 2026年6月13日18:00 正式停用' : '距离下线还剩：'}
+      {/* 人工转粉申请弹窗 */}
+      <ManualTransferDialog
+        open={showManualDialog}
+        onClose={() => { setShowManualDialog(false); setPendingSourceIds([]); setPendingTargetUser(null) }}
+        onConfirm={handleManualTransferConfirm}
+        sourceIds={pendingSourceIds}
+        targetUserName={pendingTargetUser?.name || ''}
+        targetDepartmentName={pendingTargetUser?.dept || ''}
+        users={users}
+      />
+
+      {/* 图片预览弹窗 */}
+      {previewImages.length > 0 && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80" onClick={() => setPreviewImages([])}>
+          <div className="relative flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            {/* 图片 */}
+            <img
+              src={previewImages[previewIndex]}
+              alt={`截图预览 ${previewIndex + 1}`}
+              className="max-w-[90vw] max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
+            {/* 底部控制栏 */}
+            <div className="mt-4 flex items-center gap-4">
+              {previewImages.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setPreviewIndex(i => (i - 1 + previewImages.length) % previewImages.length)}
+                    className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+                  >
+                    <ChevronLeftIcon className="h-5 w-5" />
+                  </button>
+                </>
+              )}
+              <span className="text-white/80 text-sm tabular-nums">
+                {previewIndex + 1} / {previewImages.length}
               </span>
-              {!isExpired && (
-                <span className="text-base font-bold tabular-nums text-foreground bg-background px-2.5 py-0.5 rounded-md border border-border shadow-sm">
-                  {countdown}
-                </span>
+              {previewImages.length > 1 && (
+                <button
+                  onClick={() => setPreviewIndex(i => (i + 1) % previewImages.length)}
+                  className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
               )}
             </div>
-            {/* 内容区 */}
-            <div className="px-5 py-5 space-y-4">
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                {isExpired
-                  ? <>转粉工单功能已正式下线，<strong className="text-foreground">不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
-                  : <>在 <strong className="text-foreground">2026年6月13日18:00</strong> 之前，您仍可正常提交转粉工单，管理员会照常处理。<strong className="text-foreground">到期后将不再接受新工单且不再处理</strong>。请阅读下方操作文档，逐步开始使用若善云系统内置的原生转粉功能：</>
-                }
-              </p>
-              <a
-                href="https://docs.qq.com/doc/DSkdoQktEcEFOaE1h"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-950/50 transition-colors text-sm font-medium"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                【腾讯文档】若善云系统内转粉操作步骤
-              </a>
-              <div className="bg-muted/50 rounded-lg px-4 py-3 space-y-2 text-sm text-muted-foreground">
-                {isExpired ? (
-                  <p>
-                    您仍可关闭此弹窗查看此前提交的历史工单记录。
-                  </p>
-                ) : (
-                  <p>
-                    关闭此弹窗后您可继续正常使用转粉工单功能，管理员会对提交的工单进行处理。
-                  </p>
-                )}
-                <p>
-                  如有疑问，请在微信群 <strong className="text-foreground">"IFC银发 领航破局"</strong> 内联系<strong className="text-foreground">胡凌峰</strong>与<strong className="text-foreground">张永豪</strong>。
-                </p>
-              </div>
-            </div>
-            {/* 底部操作 */}
-            <div className="border-t border-border px-5 py-3 flex justify-end bg-muted/30">
-              <button
-                onClick={() => setShowDeprecationNotice(false)}
-                className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
-              >
-                我已知晓，关闭
-              </button>
-            </div>
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setPreviewImages([])}
+              className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
           </div>
         </div>
       )}

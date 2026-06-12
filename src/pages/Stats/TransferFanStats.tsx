@@ -28,7 +28,7 @@ import {
   TrophyIcon,
   UserGroupIcon,
   BuildingOfficeIcon,
-  BoltIcon,
+  BoltIcon, PhotoIcon,
 } from '@heroicons/react/24/outline'
 import { StatCardSkeleton, ChartSkeleton } from '@/components/common/Skeleton'
 
@@ -52,6 +52,13 @@ export default function TransferFanStats() {
   const [urgentLogs, setUrgentLogs] = useState<UrgentLog[]>([])
   const [loading, setLoading] = useState(true)
 
+  // 附件统计
+  const [attachmentStats, setAttachmentStats] = useState<{
+    dailyStats: Array<{ date: string; count: number; sizeBytes: number }>
+    totalCount: number
+    totalSizeBytes: number
+  } | null>(null)
+
   // 时间段筛选
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -64,14 +71,16 @@ export default function TransferFanStats() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [data, users, urgent] = await Promise.all([
+        const [data, users, urgent, attStats] = await Promise.all([
           transferFanStatsService.getAllOrders(),
           userService.getAllUsers(),
           transferFanStatsService.getUrgentLogs(),
+          transferFanStatsService.getAttachmentStats(),
         ])
         setOrders(data)
         setAllUsers(users)
         setUrgentLogs(urgent)
+        setAttachmentStats(attStats)
 
         // 默认显示最近3个月数据
         const now = new Date()
@@ -531,6 +540,82 @@ export default function TransferFanStats() {
     }
   }, [urgentLogs, dateFrom, dateTo, isDark, bgColor, borderColor, textColor])
 
+  // ─── 截图附件每日趋势 ─────────────────────────
+  const attachmentTrendOption = useMemo(() => {
+    if (!attachmentStats || attachmentStats.dailyStats.length === 0) {
+      return {
+        backgroundColor: bgColor,
+        grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+        xAxis: { type: 'category' as const, data: [], axisLabel: { color: textColor } },
+        yAxis: { type: 'value' as const, axisLabel: { color: textColor } },
+        series: [],
+        title: {
+          text: '暂无数据', left: 'center', top: 'center',
+          textStyle: { color: textColor, fontSize: 14, fontWeight: 'normal' as const },
+        },
+      }
+    }
+
+    const sorted = attachmentStats.dailyStats
+    const labels = sorted.map(d => d.date.slice(5))
+    const counts = sorted.map(d => d.count)
+    const sizesMB = sorted.map(d => +(d.sizeBytes / 1024 / 1024).toFixed(2))
+
+    return {
+      backgroundColor: bgColor,
+      tooltip: {
+        trigger: 'axis' as const,
+        backgroundColor: isDark ? '#27272a' : '#fff',
+        borderColor,
+        textStyle: { color: textColor, fontSize: 12 },
+        formatter: (params: any) => {
+          const idx = params[0].dataIndex
+          const day = sorted[idx]
+          const sizeMB = (day.sizeBytes / 1024 / 1024).toFixed(2)
+          let html = `<strong>${day.date}</strong><br/>`
+          params.forEach((p: any) => {
+            html += `${p.marker} ${p.seriesName}: ${p.value}${p.seriesName === '占用空间' ? ' MB' : ' 张'}<br/>`
+          })
+          return html
+        },
+      },
+      legend: { data: ['上传张数', '占用空间'], textStyle: { color: textColor, fontSize: 12 } },
+      grid: { left: '3%', right: '4%', bottom: '12%', top: '15%', containLabel: true },
+      xAxis: {
+        type: 'category' as const, data: labels,
+        axisLine: { lineStyle: { color: borderColor } },
+        axisLabel: { color: textColor, fontSize: 11 },
+      },
+      yAxis: [
+        {
+          type: 'value' as const, name: '张数',
+          axisLabel: { color: textColor, fontSize: 11 },
+          splitLine: { lineStyle: { color: borderColor, type: 'dashed' as const } },
+        },
+        {
+          type: 'value' as const, name: 'MB',
+          axisLabel: { color: textColor, fontSize: 11 },
+          splitLine: { show: false },
+        },
+      ],
+      series: [
+        {
+          name: '上传张数', type: 'bar', barWidth: '50%',
+          data: counts,
+          itemStyle: { borderRadius: [4, 4, 0, 0], color: '#8b5cf6' },
+        },
+        {
+          name: '占用空间', type: 'line', smooth: true,
+          yAxisIndex: 1,
+          data: sizesMB,
+          symbol: 'circle', symbolSize: 6,
+          lineStyle: { width: 2.5, color: '#f43f5e' },
+          itemStyle: { color: '#f43f5e' },
+        },
+      ],
+    }
+  }, [attachmentStats, isDark, bgColor, borderColor, textColor])
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -722,8 +807,62 @@ export default function TransferFanStats() {
           />
         </div>
       </div>
+
+      {/* 截图附件管理 */}
+      <div className="bg-card border border-border rounded-xl p-5">
+        <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+          <PhotoIcon className="h-5 w-5 text-violet-500" />
+          截图附件管理
+        </h3>
+
+        {/* 统计概览 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div className="bg-violet-50 dark:bg-violet-900/20 rounded-xl p-4">
+            <p className="text-xs text-violet-600 dark:text-violet-400">总附件数</p>
+            <p className="text-xl font-bold text-violet-700 dark:text-violet-300 mt-1">
+              {attachmentStats?.totalCount ?? '—'}
+            </p>
+          </div>
+          <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl p-4">
+            <p className="text-xs text-rose-600 dark:text-rose-400">总占用空间</p>
+            <p className="text-xl font-bold text-rose-700 dark:text-rose-300 mt-1">
+              {attachmentStats ? formatBytes(attachmentStats.totalSizeBytes) : '—'}
+            </p>
+          </div>
+          <div className="bg-cyan-50 dark:bg-cyan-900/20 rounded-xl p-4">
+            <p className="text-xs text-cyan-600 dark:text-cyan-400">记录天数</p>
+            <p className="text-xl font-bold text-cyan-700 dark:text-cyan-300 mt-1">
+              {attachmentStats?.dailyStats.length ?? '—'} 天
+            </p>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4">
+            <p className="text-xs text-amber-600 dark:text-amber-400">日均上传</p>
+            <p className="text-xl font-bold text-amber-700 dark:text-amber-300 mt-1">
+              {attachmentStats && attachmentStats.dailyStats.length > 0
+                ? (attachmentStats.totalCount / attachmentStats.dailyStats.length).toFixed(1) + ' 张'
+                : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* 趋势图 */}
+        <ReactECharts
+          echarts={echarts}
+          option={attachmentTrendOption}
+          style={{ height: 380 }}
+          notMerge={true}
+          lazyUpdate={true}
+        />
+      </div>
     </div>
   )
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(1024))
+  return (bytes / Math.pow(1024, i)).toFixed(2) + ' ' + units[i]
 }
 
 function StatCard({

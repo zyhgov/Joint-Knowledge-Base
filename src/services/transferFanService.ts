@@ -8,12 +8,20 @@ export const transferFanService = {
     target_user_id: string
     remark?: string
     created_by: string
+    reason_type?: string | null
+    reason_detail?: string | null
+    seat_user_id?: string | null
+    attachment_urls?: Array<{ url: string; key: string; uploaded_at: string; size?: number }> | null
   }[]): Promise<TransferFanOrder[]> => {
     const payload = orders.map(o => ({
       source_user_ids: o.source_user_ids,
       target_user_id: o.target_user_id,
       remark: o.remark || null,
       created_by: o.created_by,
+      reason_type: o.reason_type || null,
+      reason_detail: o.reason_detail || null,
+      seat_user_id: o.seat_user_id || null,
+      attachment_urls: o.attachment_urls || [],
     }))
 
     const { data, error } = await supabase
@@ -74,7 +82,8 @@ export const transferFanService = {
         *,
         target_user:jkb_users!transfer_fan_orders_target_user_id_fkey(id, display_name, phone, avatar_url),
         creator:jkb_users!transfer_fan_orders_created_by_fkey(id, display_name, phone, avatar_url),
-        processor:jkb_users!transfer_fan_orders_processed_by_fkey(id, display_name, phone, avatar_url)
+        processor:jkb_users!transfer_fan_orders_processed_by_fkey(id, display_name, phone, avatar_url),
+        seat_user:jkb_users!transfer_fan_orders_seat_user_id_fkey(id, display_name, phone)
       `, { count: 'exact' })
 
     // 权限控制：非管理员只能看自己创建的工单

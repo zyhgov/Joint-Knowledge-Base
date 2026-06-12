@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { transferFanService } from '@/services/transferFanService'
-import { TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, DepartmentTreeNode } from '@/types/database'
+import { TransferFanOrder, TRANSFER_FAN_STATUS_LABELS, TRANSFER_FAN_STATUS_COLORS, TRANSFER_FAN_REASON_LABELS, DepartmentTreeNode } from '@/types/database'
 import { useAuthStore } from '@/store/authStore'
 import { userService } from '@/services/userService'
 import { departmentService } from '@/services/departmentService'
@@ -19,9 +19,10 @@ import { toast } from 'react-hot-toast'
 import { cn } from '@/lib/utils'
 import {
   PaperAirplaneIcon, ChevronDownIcon, ChevronRightIcon,
-  MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon,
+  MagnifyingGlassIcon, ArrowPathIcon, XMarkIcon, PhotoIcon,
 } from '@heroicons/react/24/outline'
 import { SearchableUserSelect, DepartmentTreeSelect } from './components/FilterComponents'
+import { getPublicImageUrl } from '@/utils/imageCompress'
 
 const PAGE_SIZE_OPTIONS = [20, 50, 100]
 
@@ -51,6 +52,10 @@ export default function AuditManagement() {
 
   // 展开的源用户ID列表
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+
+  // 图片预览
+  const [previewOrder, setPreviewOrder] = useState<TransferFanOrder | null>(null)
+  const [previewIndex, setPreviewIndex] = useState(0)
 
   // 部门树平铺
   const flatDepartments = useMemo(() => {
@@ -345,7 +350,10 @@ export default function AuditManagement() {
           {/* 表头 */}
           <div className="flex items-center gap-3 px-4 py-2 text-xs font-medium text-muted-foreground bg-muted/50 rounded-lg">
             <div className="w-[140px] flex-shrink-0">源用户</div>
+            <div className="w-[80px] flex-shrink-0">转前坐席</div>
             <div className="w-[120px] flex-shrink-0">目标用户</div>
+            <div className="w-[100px] flex-shrink-0">申请原因</div>
+            <div className="w-[60px] flex-shrink-0">附件</div>
             <div className="w-[100px] flex-shrink-0">创建人</div>
             <div className="w-[100px] flex-shrink-0">处理人</div>
             <div className="w-[70px] flex-shrink-0">状态</div>
@@ -359,10 +367,47 @@ export default function AuditManagement() {
               <div className="w-[140px] flex-shrink-0 pt-1">
                 <SourceIdsDisplay ids={order.source_user_ids} />
               </div>
+              <div className="w-[80px] flex-shrink-0 pt-1">
+                <span className="text-sm text-muted-foreground">
+                  {order.seat_user?.display_name || order.seat_user?.phone || (
+                    <span className="text-xs text-muted-foreground/50">—</span>
+                  )}
+                </span>
+              </div>
               <div className="w-[120px] flex-shrink-0 pt-1">
                 <span className="text-sm font-medium">
                   {order.target_user?.display_name || order.target_user?.phone || '未知'}
                 </span>
+              </div>
+              <div className="w-[100px] flex-shrink-0 pt-1">
+                <div className="text-sm text-muted-foreground">
+                  {order.reason_type ? (
+                    <span>{TRANSFER_FAN_REASON_LABELS[order.reason_type]}</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground/50">—</span>
+                  )}
+                  {order.reason_detail && order.reason_type === 'other' && (
+                    <div className="text-xs text-muted-foreground/70 mt-0.5 truncate max-w-[90px]">
+                      {order.reason_detail}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="w-[60px] flex-shrink-0 pt-1">
+                {order.attachment_urls && order.attachment_urls.length > 0 ? (
+                  <button
+                    onClick={() => {
+                      setPreviewOrder(order)
+                      setPreviewIndex(0)
+                    }}
+                    className="flex items-center gap-1 text-primary hover:text-primary/80 text-xs"
+                  >
+                    <PhotoIcon className="h-4 w-4" />
+                    <span>{order.attachment_urls.length}</span>
+                  </button>
+                ) : (
+                  <span className="text-xs text-muted-foreground/50">—</span>
+                )}
               </div>
               <div className="w-[100px] flex-shrink-0 pt-1">
                 <span className="text-sm text-muted-foreground">
@@ -423,6 +468,55 @@ export default function AuditManagement() {
           </Button>
         </div>
       </div>
+
+      {/* 图片预览弹窗 */}
+      {previewOrder && previewOrder.attachment_urls && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setPreviewOrder(null)}
+        >
+          <div className="relative flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={getPublicImageUrl(previewOrder.attachment_urls[previewIndex].url)}
+              alt={`截图 ${previewIndex + 1}`}
+              className="max-w-[85vw] max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
+            <div className="flex items-center gap-4 mt-3">
+              {previewIndex > 0 && (
+                <button
+                  onClick={() => setPreviewIndex(i => i - 1)}
+                  className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </button>
+              )}
+              <span className="text-sm text-white/70">
+                {previewIndex + 1} / {previewOrder.attachment_urls.length}
+              </span>
+              {previewIndex < previewOrder.attachment_urls.length - 1 && (
+                <button
+                  onClick={() => setPreviewIndex(i => i + 1)}
+                  className="w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 关闭按钮 */}
+          <button
+            onClick={() => setPreviewOrder(null)}
+            className="fixed top-4 right-4 w-9 h-9 rounded-full bg-white/15 backdrop-blur-sm text-white hover:bg-white/25 flex items-center justify-center transition-colors z-10"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

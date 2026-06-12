@@ -35,7 +35,7 @@ const generateFileName = (file: File): string => {
   return `${timestamp}_${randomStr}.${ext}`
 }
 
-export type UploadFolder = 'avatars' | 'covers' | 'documents' | 'files' | 'images' | 'videos' | 'audios' | 'icons' | 'chat-files'
+export type UploadFolder = 'avatars' | 'covers' | 'documents' | 'files' | 'images' | 'videos' | 'audios' | 'icons' | 'chat-files' | 'transfer-attachments'
 
 export interface UploadResult {
   url: string

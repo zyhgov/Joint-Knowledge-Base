@@ -28,6 +28,8 @@ type Bindings = {
   VOLC_MODEL: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
+  SUPABASE_SERVICE_KEY: string;
+  TRANSFER_BUCKET: R2Bucket;
 };
 
 type Env = {
@@ -251,6 +253,74 @@ app.post("/api/spreadsheet/:id/kick", async (c) => {
   return c.json({ ok: true, action: "kick" })
 })
 
+// ====== 附件自动清理（7天过期） ======
+
+async function cleanupExpiredAttachments(env: Bindings): Promise<{ deleted: number; errors: number }> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  let deleted = 0
+  let errors = 0
+
+  try {
+    // 查询7天前的、仍有附件的工单
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/transfer_fan_orders?created_at=lt.${sevenDaysAgo}&attachment_urls=not.eq.%5B%5D&select=id,attachment_urls`,
+      {
+        headers: {
+          'apikey': env.SUPABASE_SERVICE_KEY,
+          'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
+    if (!res.ok) {
+      console.error('Failed to query orders:', await res.text())
+      return { deleted, errors: 1 }
+    }
+
+    const orders = await res.json() as Array<{ id: string; attachment_urls: Array<{ url: string; key: string; uploaded_at: string }> }>
+
+    for (const order of orders) {
+      if (!order.attachment_urls || order.attachment_urls.length === 0) continue
+
+      // 从 R2 删除每个附件
+      for (const att of order.attachment_urls) {
+        try {
+          if (att.key) {
+            await env.TRANSFER_BUCKET.delete(att.key)
+            deleted++
+          }
+        } catch (e) {
+          console.error(`Failed to delete R2 key ${att.key}:`, e)
+          errors++
+        }
+      }
+
+      // 将 attachment_urls 更新为空数组，避免重复删除
+      try {
+        await fetch(`${env.SUPABASE_URL}/rest/v1/transfer_fan_orders?id=eq.${order.id}`, {
+          method: 'PATCH',
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ attachment_urls: [] }),
+        })
+      } catch (e) {
+        console.error(`Failed to update order ${order.id}:`, e)
+        errors++
+      }
+    }
+  } catch (e) {
+    console.error('Cleanup error:', e)
+    errors++
+  }
+
+  return { deleted, errors }
+}
+
 // Yjs 协作路由 - WebSocket 连接端点
 // 客户端通过 ws://host/editor/{docId} 连接
 const route = app.route(
@@ -258,6 +328,61 @@ const route = app.route(
   yRoute<Env>((env) => env.Y_DURABLE_OBJECTS),
 );
 
-export default route;
+// Cron 触发路由 - 手动触发清理（仅限管理员）
+app.post('/api/cron/cleanup-attachments', async (c) => {
+  const auth = c.req.header('Authorization')
+  if (auth !== `Bearer ${c.env.SUPABASE_SERVICE_KEY}`) {
+    return c.json({ error: 'Unauthorized' }, 401)
+  }
+  const result = await cleanupExpiredAttachments(c.env)
+  return c.json(result)
+})
+
+// 转粉截图附件每日统计
+app.get('/api/transfer-attachment-stats', async (c) => {
+  const dailyMap = new Map<string, { count: number; sizeBytes: number }>()
+  let totalCount = 0
+  let totalSizeBytes = 0
+
+  try {
+    let cursor: string | undefined
+    do {
+      const list = await c.env.TRANSFER_BUCKET.list({
+        prefix: 'transfer-attachments/',
+        cursor,
+      })
+
+      for (const obj of list.objects) {
+        const date = ((obj.uploaded ? new Date(obj.uploaded).toISOString() : new Date().toISOString())).slice(0, 10)
+        const existing = dailyMap.get(date) || { count: 0, sizeBytes: 0 }
+        existing.count++
+        existing.sizeBytes += obj.size
+        dailyMap.set(date, existing)
+        totalCount++
+        totalSizeBytes += obj.size
+      }
+
+      cursor = list.truncated ? list.cursor : undefined
+    } while (cursor)
+  } catch (e) {
+    console.error('Failed to list R2 attachments:', e)
+    return c.json({ error: 'Failed to list attachments' }, 500)
+  }
+
+  const dailyStats = Array.from(dailyMap.entries())
+    .map(([date, stats]) => ({ date, ...stats }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+  return c.json({ dailyStats, totalCount, totalSizeBytes })
+})
+
+export default {
+  fetch: route.fetch.bind(route),
+  scheduled: async (_event: ScheduledEvent, env: Bindings, _ctx: ExecutionContext) => {
+    console.log('[Cron] Starting attachment cleanup...')
+    const result = await cleanupExpiredAttachments(env)
+    console.log(`[Cron] Cleanup complete: ${result.deleted} deleted, ${result.errors} errors`)
+  },
+}
 export type AppType = typeof route;
 export { YDurableObjects };
